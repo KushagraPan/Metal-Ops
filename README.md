@@ -2,7 +2,7 @@
 
 Scrap purchasing, furnace heats, sales and spectro reports for a small aluminium recycling workshop. It computes yield and profit per heat, always **excluding GST**.
 
-**Status:** pre-code. The specification is frozen and the backlog is written; implementation starts at issue #1. Nothing in the repository runs yet.
+**Status:** scaffold (issue #1). `make dev` runs the API and the frontend locally; application features start at issue #2.
 
 ## The problem
 
@@ -73,14 +73,15 @@ Full detail: [`_docs/architecture.md`](_docs/architecture.md).
 
 ## How to run
 
-Not runnable yet. These are the target commands, delivered by issues #1, #2, #13 and #15:
+Prerequisites: Python 3.11+, Node 20+ and GNU Make. The first run creates `.venv` and installs frontend dependencies.
 
-| Command | Purpose |
-|---|---|
-| `make dev` | API and frontend locally against SQLite |
-| `make test` | Unit and integration tests |
-| `make seed` | Load fictional demo data |
-| `docker compose up` | Frontend, API, PostgreSQL and the observability stack |
+| Command | Purpose | Available |
+|---|---|---|
+| `make dev` | API on `:8000`, frontend on `:5173` | now |
+| `make test` | pytest, Vitest and the TypeScript check | now |
+| `make install` | Create the virtualenv and install dependencies | now |
+| `make seed` | Load fictional demo data | issue #2 |
+| `docker compose up` | Frontend, API, PostgreSQL and the observability stack | issue #13 |
 
 ## Documentation
 
