@@ -93,7 +93,7 @@ def parse_backlog(text: str) -> list[Issue]:
             labels_match = LABELS_RE.match(line.strip())
             if labels_match:
                 raw = labels_match.group("labels")
-                issue.labels = [p.strip() for p in raw.split("·") if p.strip()]
+                issue.labels = [p.strip() for p in raw.split(",") if p.strip()]
                 issue.depends_on = (labels_match.group("deps") or "none").strip()
                 break
 
