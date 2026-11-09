@@ -93,10 +93,12 @@ Acceptance criteria:
 - Total alloy kg sold for a heat cannot exceed its `output_kg`, otherwise 422 (R9).
 - `WE_PAY_BILL` requires `transport_billed` not greater than `transport_cost`; `CUSTOMER_ARRANGES` forces both to 0.
 - Profit on the heat detail updates after a sale is added.
+- A heat whose sold alloy kg is below `output_kg` is provisional (R8). The heat list/detail labels its profit "provisional"; a fully sold heat is not provisional. The heat response exposes `sold_alloy_kg` and `is_provisional` so the UI does not infer it.
+- Monthly profit (R10) carries the same provisional state when any heat included in the month is provisional; the dashboard does not present it as final.
 - Deleting a heat that has one or more linked sales returns 409 and deletes nothing: the heat, its inputs and its sales remain. Sales must not be cascade-deleted. This mirrors #4's lot-delete guard.
 - Reducing a heat's `output_kg` below the total alloy kg already sold from it returns 422 and saves nothing. It may be reduced to exactly the sold kg. This mirrors #4's lot rule.
 
-Tests: each transport mode, each validation, profit before and after a sale, delete heat with a linked sale returns 409, reduce output below sold kg returns 422, reduce output to exactly sold kg succeeds.
+Tests: each transport mode, each validation, profit before and after a sale, provisional label before and after full sale, monthly provisional propagation, delete heat with a linked sale returns 409, reduce output below sold kg returns 422, reduce output to exactly sold kg succeeds.
 
 ## #7 [P0] Heat history and detail view
 Labels: frontend, backend · Depends on: #6
@@ -134,8 +136,9 @@ Acceptance criteria:
 - Month selector changes all figures.
 - Break-even shows `n/a` when average heat profit is 0 or negative.
 - The GST estimate is labelled "estimate".
+- Monthly profit is labelled provisional when any heat included in the month is provisional (R8/R10).
 
-Tests: API tests with the seed data for a known month.
+Tests: API tests with the seed data for a known month; frontend tests for the month selector and the provisional monthly label.
 
 ## #10 [P1] Dashboard design system and charts
 Labels: frontend, design · Depends on: #9 · Time box: about 3 hours

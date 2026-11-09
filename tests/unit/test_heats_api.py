@@ -348,6 +348,70 @@ def test_update_excludes_the_heats_own_consumption(
     assert purchase["remaining_kg"] == "0.00"
 
 
+def test_update_rejects_output_above_the_new_input_total(
+    client: TestClient,
+) -> None:
+    lot = create_lot(client, weight_kg="100.00")
+    heat = client.post(
+        "/api/heats",
+        json=heat_payload(
+            heat_no="H-1",
+            output_kg="80.00",
+            inputs=[input_payload(lot["id"], "80.00")],
+        ),
+    ).json()
+
+    response = client.put(
+        f"/api/heats/{heat['id']}",
+        json=heat_payload(
+            heat_no="H-1",
+            output_kg="70.00",
+            inputs=[input_payload(lot["id"], "60.00")],
+        ),
+    )
+
+    assert response.status_code == 422, response.text
+    fetched = client.get(f"/api/heats/{heat['id']}").json()
+    assert fetched["output_kg"] == "80.00"
+    assert fetched["inputs"][0]["kg"] == "80.00"
+    assert fetched["total_input_kg"] == "80.00"
+    assert (
+        client.get(f"/api/purchases/{lot['id']}").json()["remaining_kg"]
+        == "20.00"
+    )
+
+
+def test_update_to_empty_inputs_returns_null_yield_and_profit(
+    client: TestClient,
+) -> None:
+    lot = create_lot(client, weight_kg="100.00")
+    heat = client.post(
+        "/api/heats",
+        json=heat_payload(
+            heat_no="H-1",
+            output_kg="80.00",
+            inputs=[input_payload(lot["id"], "80.00")],
+        ),
+    ).json()
+
+    response = client.put(
+        f"/api/heats/{heat['id']}",
+        json=heat_payload(heat_no="H-1", output_kg="80.00", inputs=[]),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["inputs"] == []
+    assert body["total_input_kg"] == "0.00"
+    assert body["yield_pct"] is None
+    assert body["scrap_cost"] == "0.00"
+    assert body["heat_profit"] is None
+    assert (
+        client.get(f"/api/purchases/{lot['id']}").json()["remaining_kg"]
+        == "100.00"
+    )
+
+
 def test_update_switching_lots_releases_the_old_lot(
     client: TestClient,
 ) -> None:
