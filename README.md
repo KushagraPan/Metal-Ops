@@ -2,7 +2,7 @@
 
 Scrap purchasing, furnace heats, sales and spectro reports for a small aluminium recycling workshop. It computes yield and profit per heat, always **excluding GST**.
 
-**Status:** data layer (issue #2). `make dev` runs the API and the frontend locally; `make seed` loads fictional demo data. Feature screens start at issue #4.
+**Status:** purchases API and screen (issue #4). `make dev` runs the API and the frontend locally; `make seed` loads fictional demo data. Heats and sales screens follow.
 
 ## The problem
 

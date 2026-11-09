@@ -147,6 +147,10 @@ Storing derived money would create a second source of truth that drifts after ev
 
 ## 4. Key flows
 
+### Purchases API
+
+`GET/POST /api/purchases` and `GET/PUT/DELETE /api/purchases/{id}`. The service stores only the lot columns; the response adds `gst_amount`, `landed_cost_per_kg`, `consumed_kg` and `remaining_kg`, all computed through `calc.py`. `SUPPLIER_DELIVERS` normalises freight to zero, `WE_PAY` requires a positive freight cost, and a lot cannot be reduced below the kilograms already consumed by heats or deleted while a heat references it.
+
 ### Create a heat (R4)
 
 1. Router validates the payload (alloy, output ≥ 0, at least one input, unique `heat_no`).
@@ -227,10 +231,11 @@ Working-capital planning, multi-year projections, multiple workspaces or roles, 
 | Component | Issue | State |
 |---|---|---|
 | Repository, docs, agent process | #19 (partly wave 0) | **Done** |
-| Backend/frontend scaffold and commands | #1 | Not started |
-| Models, migration, seed | #2 | Not started |
-| `calc.py` and unit tests | #3 | Not started |
-| Purchases, heats, sales APIs and screens | #4, #5, #6 | Not started |
+| Backend/frontend scaffold and commands | #1 | Done |
+| Models, migration, seed | #2 | Done |
+| `calc.py` and unit tests | #3 | Done |
+| Purchases API and screen | #4 | In review |
+| Heats, sales APIs and screens | #5, #6 | Not started |
 | Heat history and detail | #7 | Not started |
 | Spectro reports and storage | #8 | Not started |
 | Expenses and dashboard figures | #9 | Not started |
