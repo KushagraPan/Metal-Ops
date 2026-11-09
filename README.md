@@ -2,7 +2,7 @@
 
 Scrap purchasing, furnace heats, sales and spectro reports for a small aluminium recycling workshop. It computes yield and profit per heat, always **excluding GST**.
 
-**Status:** scaffold (issue #1). `make dev` runs the API and the frontend locally; application features start at issue #2.
+**Status:** data layer (issue #2). `make dev` runs the API and the frontend locally; `make seed` loads fictional demo data. Feature screens start at issue #4.
 
 ## The problem
 
@@ -80,7 +80,8 @@ Prerequisites: Python 3.11+, Node 20+ and GNU Make. The first run creates `.venv
 | `make dev` | API on `:8000`, frontend on `:5173` | now |
 | `make test` | pytest, Vitest and the TypeScript check | now |
 | `make install` | Create the virtualenv and install dependencies | now |
-| `make seed` | Load fictional demo data | issue #2 |
+| `make migrate` | Apply Alembic migrations to `DATABASE_URL` (SQLite by default) | now |
+| `make seed` | Apply migrations, then load fictional demo data | now |
 | `docker compose up` | Frontend, API, PostgreSQL and the observability stack | issue #13 |
 
 ## Documentation
