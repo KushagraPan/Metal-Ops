@@ -134,4 +134,4 @@ The tracker is the record, not the chat. For each closed issue the repository ho
 
 ## Current state
 
-Wave 0 and issue #1 are complete. Issue #2 is implemented, tested and waiting for human review. The next action belongs to the reviewer: review issue #2 before issue #3 starts.
+Wave 0 and issues #1–#2 are complete and verified. The next action is issue #3, the calculation module.
