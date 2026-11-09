@@ -6,7 +6,7 @@ MetalOps Lite tracks scrap purchases, furnace heats, sales and spectro reports f
 
 1. [`product-spec.md`](product-spec.md) — the frozen specification. Business rules R1–R13 and the worked example are the source of truth.
 2. [`_docs/architecture.md`](_docs/architecture.md) — layers, data model, key flows, deployment topology.
-3. [`_docs/backlog.md`](_docs/backlog.md) — issues #1–#19. The GitHub issue is authoritative; this file mirrors it.
+3. [`_docs/backlog.md`](_docs/backlog.md) — issues #1–#20. The GitHub issue is authoritative; this file mirrors it.
 4. [`_docs/agent-team.md`](_docs/agent-team.md) — roles, hand-offs and the evidence each role leaves.
 5. [`_docs/process.md`](_docs/process.md) — how work is organized, including the QA verdict loop.
 6. [`_docs/oncall-agent.md`](_docs/oncall-agent.md) — the alert-to-fix loop and its guardrails.

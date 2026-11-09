@@ -6,7 +6,7 @@ Rules for agents (also in `AGENTS.md`): one issue at a time, tests first, `make 
 
 **Cut line if time is short:** drop dark mode in #10, the optional element values in #8, and keep #9 minimal. Keep the #10 layout and charts, since the dashboard is the part you will show to clients. Do not load real data until #11 is done.
 
-**Suggested order:** 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, 19, then 9, 10, 11.
+**Suggested order:** 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, 19, then 9, 10, 11, 20.
 
 ---
 
@@ -65,15 +65,18 @@ Tests: API tests for each mode and each validation; one frontend test for the fo
 ## #5 [P0] Heats API and screen
 Labels: backend, frontend · Depends on: #4
 
-Create heats that consume kg from lots, with alloy, output, dross, iron scrap and variable costs.
+Create heats that consume kg from lots, with alloy, output, dross, iron scrap and variable costs. Heat inputs are lot-id references; `heat_inputs.lot_id` remains the foreign key to `purchase_lots.id`.
 
 Acceptance criteria:
-- Taking more kg from a lot than its remaining kg returns 422 and saves nothing (R4).
+- Taking more kg from a lot than its `remaining_kg` returns 422 and saves nothing (R4). Validate the sum of all inputs for the same lot, not each row in isolation.
+- The same stock guard applies on heat edit: validate the proposed inputs against each lot's available kg with this heat's existing inputs excluded. Increasing or replacing inputs beyond available kg returns 422 and saves nothing. Switching lots releases the old lot and consumes the new one atomically.
+- Deleting a heat removes its input rows atomically and returns its kg to the lots. `consumed_kg` and `remaining_kg` immediately reflect the release, and #4's 409 delete guard stops blocking a lot once no heat references it.
+- Heat inputs reference lots by stable id (`lot_id`) in the API payload and response, never by supplier name or list position. Unknown lot ids return 422 and save nothing. The `heat_inputs.lot_id` foreign key keeps #4's `remaining_kg` and 409 rules working.
 - `heat_no` is unique, otherwise 409.
 - The heat detail shows yield and scrap cost computed by the calculation module.
-- Deleting a heat returns its kg to the lots.
+- A heat with total input `0.00` kg is accepted. Its `yield_pct` is `null` in the API and the detail shows `n/a` for yield; it must return 200, not a division-by-zero error or 500. Scrap cost is `0.00`.
 
-Tests: stock guard, uniqueness, delete restores stock.
+Tests: create/edit/delete stock guards, aggregate same-lot inputs, lot-id payload/response and unknown lot id, uniqueness, zero-input yield `null`/`n/a`, delete restores stock and clears #4's 409 guard.
 
 ## #6 [P0] Sales API and screen
 Labels: backend, frontend · Depends on: #5
@@ -248,3 +251,17 @@ Acceptance criteria:
 - A stranger can run, test and deploy from the README alone.
 - `AGENTS.md` links to the modular docs.
 - The repo and issue tracker are public, and commits reference issue numbers.
+
+## #20 [P1] Make missing GST settings fallback visible
+Labels: backend, frontend · Follow-up to #4
+
+QA on #4 found that when the singleton settings row is missing, purchase responses silently use `0.18` as the GST rate. The response exposes neither the rate used nor the fact that a fallback was applied. The specification defines `gst_rate` through settings; an implicit fallback can produce a plausible but unverified GST amount.
+
+Acceptance criteria:
+- Purchase lot responses include the effective `gst_rate` used and a `gst_rate_source` value: `settings` when the row exists, `fallback` when it does not.
+- With the settings row present, `gst_rate_source` is `settings` and the UI shows no fallback warning.
+- With the settings row missing, `gst_rate_source` is `fallback`, `gst_rate` is `0.18`, and the UI shows a visible warning that the configured GST rate is missing.
+- The fallback rate is defined once as a named constant; R2 calculation behaviour is unchanged.
+- No new migration is required.
+
+Tests: API with settings present and missing, asserting `gst_rate` and `gst_rate_source`; UI test for the fallback warning; existing purchase calculations and tests remain green.
