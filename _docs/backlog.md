@@ -68,15 +68,17 @@ Labels: backend, frontend · Depends on: #4
 Create heats that consume kg from lots, with alloy, output, dross, iron scrap and variable costs. Heat inputs are lot-id references; `heat_inputs.lot_id` remains the foreign key to `purchase_lots.id`.
 
 Acceptance criteria:
-- Taking more kg from a lot than its `remaining_kg` returns 422 and saves nothing (R4). Validate the sum of all inputs for the same lot, not each row in isolation.
-- The same stock guard applies on heat edit: validate the proposed inputs against each lot's available kg with this heat's existing inputs excluded. Increasing or replacing inputs beyond available kg returns 422 and saves nothing. Switching lots releases the old lot and consumes the new one atomically.
+- Taking more kg from a lot than its `remaining_kg` returns 422 and saves nothing (R4). Validate the sum of all inputs for the same lot, not each row in isolation. The whole create is one transaction: if any input line fails, no heat and no input rows are saved.
+- The same stock guard applies on heat edit: validate the proposed inputs against each lot's available kg with this heat's existing inputs excluded. Increasing or replacing inputs beyond available kg returns 422 and saves nothing. Switching lots releases the old lot and consumes the new one atomically; a failure on any line rolls back the entire update.
 - Deleting a heat removes its input rows atomically and returns its kg to the lots. `consumed_kg` and `remaining_kg` immediately reflect the release, and #4's 409 delete guard stops blocking a lot once no heat references it.
 - Heat inputs reference lots by stable id (`lot_id`) in the API payload and response, never by supplier name or list position. Unknown lot ids return 422 and save nothing. The `heat_inputs.lot_id` foreign key keeps #4's `remaining_kg` and 409 rules working.
 - `heat_no` is unique, otherwise 409.
 - The heat detail shows yield and scrap cost computed by the calculation module.
-- A heat with total input `0.00` kg is accepted. Its `yield_pct` is `null` in the API and the detail shows `n/a` for yield; it must return 200, not a division-by-zero error or 500. Scrap cost is `0.00`.
+- Zero input means an empty `inputs` list, not an input line with kg 0. Every supplied input line must have `kg > 0` and at most 2 decimal places; `0`, a negative value, or more than 2 decimals returns 422 and saves nothing. A heat with `inputs: []` is valid: it returns 200 with `yield_pct: null` and scrap cost `0.00`.
+- `output_kg` must be positive and have at most 2 decimal places. When at least one input exists, `output_kg` must not exceed total input kg; a yield over 100% returns 422 and saves nothing. Equality (100%) is allowed. With empty inputs, yield remains `null` and no output/input comparison applies.
+- All heat weights (input, output, dross, iron scrap) and money fields use at most 2 decimal places, consistent with #4; extra precision returns 422.
 
-Tests: create/edit/delete stock guards, aggregate same-lot inputs, lot-id payload/response and unknown lot id, uniqueness, zero-input yield `null`/`n/a`, delete restores stock and clears #4's 409 guard.
+Tests: create/edit/delete stock guards, aggregate same-lot inputs, atomic multi-input rollback, lot-id payload/response and unknown lot id, uniqueness, zero-input `yield_pct` `null`/`n/a`, input and output precision, output greater than input rejected, delete restores stock and clears #4's 409 guard.
 
 ## #6 [P0] Sales API and screen
 Labels: backend, frontend · Depends on: #5
@@ -88,8 +90,9 @@ Acceptance criteria:
 - Total alloy kg sold for a heat cannot exceed its `output_kg`, otherwise 422 (R9).
 - `WE_PAY_BILL` requires `transport_billed` not greater than `transport_cost`; `CUSTOMER_ARRANGES` forces both to 0.
 - Profit on the heat detail updates after a sale is added.
+- Deleting a heat that has one or more linked sales returns 409 and deletes nothing: the heat, its inputs and its sales remain. Sales must not be cascade-deleted. This mirrors #4's lot-delete guard.
 
-Tests: each transport mode, each validation, profit before and after a sale.
+Tests: each transport mode, each validation, profit before and after a sale, delete heat with a linked sale returns 409.
 
 ## #7 [P0] Heat history and detail view
 Labels: frontend, backend · Depends on: #6
