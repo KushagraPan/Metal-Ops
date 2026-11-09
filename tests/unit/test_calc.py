@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 
@@ -268,3 +269,195 @@ def test_calc_imports_no_database_or_http_modules() -> None:
             modules.add(node.module)
 
     assert modules <= {"__future__", "collections.abc", "decimal", "typing"}
+
+
+def test_gst_amount_rounds_half_up_at_the_third_decimal() -> None:
+    # 1 * 1.25 * 0.18 = 0.225 exactly
+    assert gst_amount(D("1"), D("1.25"), GST, "WITH") == D("0.23")
+    # 1 * 1.2499 * 0.18 = 0.224982
+    assert gst_amount(D("1"), D("1.2499"), GST, "WITH") == D("0.22")
+
+
+def test_landed_cost_rounds_half_up_at_the_third_decimal() -> None:
+    # (1000 * 200 + 5) / 1000 = 200.005 exactly
+    assert (
+        landed_cost_per_kg(D("1000"), D("200"), D("5"), "WE_PAY")
+        == D("200.01")
+    )
+    # (1000 * 200 + 4.99) / 1000 = 200.00499
+    assert (
+        landed_cost_per_kg(D("1000"), D("200"), D("4.99"), "WE_PAY")
+        == D("200.00")
+    )
+
+
+def test_heat_scrap_cost_rounds_half_up_at_the_third_decimal() -> None:
+    assert heat_scrap_cost([(D("1"), D("202.005"))]) == D("202.01")
+    assert heat_scrap_cost([(D("1"), D("202.004"))]) == D("202.00")
+
+
+def test_yield_pct_rounds_half_up_at_the_third_decimal() -> None:
+    # 2469 / 20000 * 100 = 12.345 exactly
+    assert yield_pct(D("2469"), D("20000")) == D("12.35")
+    assert yield_pct(D("2468"), D("20000")) == D("12.34")
+
+
+def test_net_outbound_transport_rounds_half_up_at_the_third_decimal() -> None:
+    assert (
+        net_outbound_transport("WE_PAY_BILL", D("3000.005"), D("2000"))
+        == D("1000.01")
+    )
+    assert (
+        net_outbound_transport("WE_PAY_BILL", D("3000.004"), D("2000"))
+        == D("1000.00")
+    )
+
+
+def test_heat_profit_rounds_half_up_at_the_third_decimal() -> None:
+    assert heat_profit(D("100.005"), D("0"), D("0"), D("0")) == D("100.01")
+    assert heat_profit(D("100.004"), D("0"), D("0"), D("0")) == D("100.00")
+
+
+def test_heat_profit_rounds_negative_ties_away_from_zero() -> None:
+    assert heat_profit(D("0"), D("100.005"), D("0"), D("0")) == D("-100.01")
+
+
+def test_monthly_profit_sums_before_rounding() -> None:
+    # 0.004 + 0.004 = 0.008. Rounding each line first would give 0.00.
+    assert monthly_profit([D("0.004"), D("0.004")], [], []) == D("0.01")
+    assert monthly_profit([D("0.005")], [], []) == D("0.01")
+
+
+def test_break_even_heats_rounds_half_up_at_the_third_decimal() -> None:
+    # 1 / 8 = 0.125 exactly
+    assert break_even_heats(D("1"), [D("8")]) == D("0.13")
+    assert break_even_heats(D("100.005"), [D("1")]) == D("100.01")
+    assert break_even_heats(D("100.004"), [D("1")]) == D("100.00")
+
+
+def test_gst_summary_rounds_each_line_before_summing() -> None:
+    summary = gst_summary(
+        sales=[
+            (D("1"), D("1.25"), "WITH"),  # 0.225 -> 0.23
+            (D("1"), D("1.25"), "WITH"),  # 0.225 -> 0.23
+        ],
+        purchases=[(D("1"), D("1.25"), "WITH")],  # 0.225 -> 0.23
+        gst_rate=GST,
+    )
+    assert summary == {
+        "collected": D("0.46"),
+        "credit": D("0.23"),
+        "net_payable_estimate": D("0.23"),
+    }
+
+
+BOOL_CALLS: list[tuple[str, Callable[[], object]]] = [
+    ("gst_amount weight", lambda: gst_amount(True, D("200"), GST, "WITH")),
+    (
+        "gst_amount rate",
+        lambda: gst_amount(D("1000"), True, GST, "WITH"),
+    ),
+    (
+        "gst_amount gst_rate",
+        lambda: gst_amount(D("1000"), D("200"), True, "WITH"),
+    ),
+    (
+        "landed_cost weight",
+        lambda: landed_cost_per_kg(True, D("200"), D("2000"), "WE_PAY"),
+    ),
+    (
+        "landed_cost rate",
+        lambda: landed_cost_per_kg(D("1000"), True, D("2000"), "WE_PAY"),
+    ),
+    (
+        "landed_cost transport",
+        lambda: landed_cost_per_kg(D("1000"), D("200"), True, "WE_PAY"),
+    ),
+    ("heat_scrap_cost kg", lambda: heat_scrap_cost([(True, D("202"))])),
+    (
+        "heat_scrap_cost landed",
+        lambda: heat_scrap_cost([(D("1000"), True)]),
+    ),
+    ("yield_pct output", lambda: yield_pct(True, D("1000"))),
+    ("yield_pct input", lambda: yield_pct(D("890"), True)),
+    (
+        "net_outbound_transport cost",
+        lambda: net_outbound_transport("WE_PAY_ABSORB", True, D("0")),
+    ),
+    (
+        "net_outbound_transport billed",
+        lambda: net_outbound_transport(
+            "WE_PAY_BILL", D("3000"), True
+        ),
+    ),
+    (
+        "heat_profit revenue",
+        lambda: heat_profit(True, D("0"), D("0"), D("0")),
+    ),
+    (
+        "heat_profit scrap_cost",
+        lambda: heat_profit(D("0"), True, D("0"), D("0")),
+    ),
+    (
+        "heat_profit variable_costs",
+        lambda: heat_profit(D("0"), D("0"), True, D("0")),
+    ),
+    (
+        "heat_profit net_transport",
+        lambda: heat_profit(D("0"), D("0"), D("0"), True),
+    ),
+    ("is_provisional sold", lambda: is_provisional(True, D("890"))),
+    ("is_provisional output", lambda: is_provisional(D("890"), True)),
+    (
+        "monthly_profit heat_profits",
+        lambda: monthly_profit([True], [], []),
+    ),
+    (
+        "monthly_profit unlinked",
+        lambda: monthly_profit([], [True], []),
+    ),
+    (
+        "monthly_profit expenses",
+        lambda: monthly_profit([], [], [True]),
+    ),
+    (
+        "break_even_heats expenses",
+        lambda: break_even_heats(True, [D("1000")]),
+    ),
+    (
+        "break_even_heats profits",
+        lambda: break_even_heats(D("1000"), [True]),
+    ),
+    (
+        "gst_summary sale weight",
+        lambda: gst_summary([(True, D("200"), "WITH")], [], GST),
+    ),
+    (
+        "gst_summary sale rate",
+        lambda: gst_summary([(D("1000"), True, "WITH")], [], GST),
+    ),
+    (
+        "gst_summary purchase weight",
+        lambda: gst_summary([], [(True, D("200"), "WITH")], GST),
+    ),
+    (
+        "gst_summary purchase rate",
+        lambda: gst_summary([], [(D("1000"), True, "WITH")], GST),
+    ),
+    (
+        "gst_summary gst_rate",
+        lambda: gst_summary([(D("1000"), D("200"), "WITH")], [], True),
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("_name", "call"),
+    BOOL_CALLS,
+    ids=[name for name, _call in BOOL_CALLS],
+)
+def test_calc_rejects_bool_in_every_numeric_slot(
+    _name: str, call: Callable[[], object]
+) -> None:
+    with pytest.raises(TypeError):
+        call()
