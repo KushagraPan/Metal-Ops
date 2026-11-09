@@ -49,8 +49,9 @@ One deployable backend, one static frontend, one database, one file volume. No q
 ```mermaid
 erDiagram
     SETTING {
-        string key PK
-        numeric value
+        int id PK
+        numeric gst_rate
+        numeric planned_yield_pct
     }
     USER {
         int id PK
