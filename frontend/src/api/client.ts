@@ -25,6 +25,36 @@ export function apiUrl(path: string): string {
   return `${base}${suffix}`
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+async function responseMessage(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json()
+    if (isRecord(body)) {
+      const detail = body['detail']
+      if (typeof detail === 'string') {
+        return detail
+      }
+      if (Array.isArray(detail)) {
+        const messages = detail.map((item: unknown) => {
+          if (isRecord(item) && typeof item['msg'] === 'string') {
+            return item['msg']
+          }
+          return String(item)
+        })
+        if (messages.length > 0) {
+          return messages.join('; ')
+        }
+      }
+    }
+  } catch {
+    // Fall through to the status message.
+  }
+  return `Request failed with status ${response.status}`
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!headers.has('Accept')) {
@@ -38,16 +68,63 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
 
   if (!response.ok) {
-    throw new ApiError(response.status, `Request failed with status ${response.status}`)
+    throw new ApiError(response.status, await responseMessage(response))
   }
 
-  return (await response.json()) as T
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
 
 export interface HealthStatus {
   status: string
 }
 
+export type GstMode = 'WITH' | 'WITHOUT'
+export type PurchaseTransportMode = 'SUPPLIER_DELIVERS' | 'WE_PAY'
+
+export interface PurchaseLotInput {
+  purchase_date: string
+  supplier: string
+  notes: string | null
+  weight_kg: string
+  rate_per_kg: string
+  gst_mode: GstMode
+  transport_mode: PurchaseTransportMode
+  transport_cost: string
+}
+
+export interface PurchaseLot extends PurchaseLotInput {
+  id: number
+  gst_amount: string
+  landed_cost_per_kg: string | null
+  consumed_kg: string
+  remaining_kg: string
+}
+
 export const api = {
   health: (): Promise<HealthStatus> => request<HealthStatus>('/api/health'),
+  purchases: {
+    list: (): Promise<PurchaseLot[]> =>
+      request<PurchaseLot[]>('/api/purchases'),
+    get: (id: number): Promise<PurchaseLot> =>
+      request<PurchaseLot>(`/api/purchases/${id}`),
+    create: (input: PurchaseLotInput): Promise<PurchaseLot> =>
+      request<PurchaseLot>('/api/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    update: (id: number, input: PurchaseLotInput): Promise<PurchaseLot> =>
+      request<PurchaseLot>(`/api/purchases/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    remove: (id: number): Promise<void> =>
+      request<void>(`/api/purchases/${id}`, { method: 'DELETE' }),
+  },
 }

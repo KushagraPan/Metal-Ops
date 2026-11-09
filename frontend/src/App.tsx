@@ -1,33 +1,13 @@
-import { useEffect, useState } from 'react'
-
-import { api } from './api/client'
-
-type Connection = 'checking' | 'connected' | 'unreachable'
+import PurchasesPage from './pages/PurchasesPage'
 
 export default function App() {
-  const [connection, setConnection] = useState<Connection>('checking')
-
-  useEffect(() => {
-    let active = true
-
-    api
-      .health()
-      .then(() => {
-        if (active) setConnection('connected')
-      })
-      .catch(() => {
-        if (active) setConnection('unreachable')
-      })
-
-    return () => {
-      active = false
-    }
-  }, [])
-
   return (
     <main className="app-shell">
-      <h1>MetalOps Lite</h1>
-      <p>API: {connection}</p>
+      <header className="app-header">
+        <p className="brand">MetalOps Lite</p>
+        <p className="muted">Aluminium recycling workshop</p>
+      </header>
+      <PurchasesPage />
     </main>
   )
 }

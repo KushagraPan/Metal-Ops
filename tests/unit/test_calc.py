@@ -17,6 +17,7 @@ from app.calc import (
     landed_cost_per_kg,
     monthly_profit,
     net_outbound_transport,
+    remaining_kg,
     yield_pct,
 )
 
@@ -349,6 +350,17 @@ def test_gst_summary_rounds_each_line_before_summing() -> None:
         "credit": D("0.23"),
         "net_payable_estimate": D("0.23"),
     }
+
+
+def test_remaining_kg_subtracts_consumed_weight() -> None:
+    assert remaining_kg(D("5000.00"), D("4800.00")) == D("200.00")
+    assert remaining_kg(D("1000"), D("0")) == D("1000.00")
+
+
+def test_remaining_kg_rounds_half_up_at_the_third_decimal() -> None:
+    assert remaining_kg(D("1000.005"), D("0")) == D("1000.01")
+    # 1000 - 0.005 = 999.995, which rounds up to 1000.00
+    assert remaining_kg(D("1000"), D("0.005")) == D("1000.00")
 
 
 BOOL_CALLS: list[tuple[str, Callable[[], object]]] = [

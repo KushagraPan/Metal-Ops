@@ -15,6 +15,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 MONEY = Decimal("0.01")
 PERCENT = Decimal("0.01")
+WEIGHT = Decimal("0.01")
 
 GST_WITH = "WITH"
 GST_WITHOUT = "WITHOUT"
@@ -53,6 +54,10 @@ def _money(value: Decimal) -> Decimal:
 
 def _percent(value: Decimal) -> Decimal:
     return value.quantize(PERCENT, rounding=ROUND_HALF_UP)
+
+
+def _weight(value: Decimal) -> Decimal:
+    return value.quantize(WEIGHT, rounding=ROUND_HALF_UP)
 
 
 def gst_amount(
@@ -121,6 +126,17 @@ def heat_scrap_cost(
             landed_cost, "landed_cost_per_kg"
         )
     return _money(total)
+
+
+def remaining_kg(
+    weight_kg: Decimal | int | str,
+    consumed_kg: Decimal | int | str,
+) -> Decimal:
+    """R4: kilograms left in a lot after the heat inputs that consumed it."""
+    return _weight(
+        _number(weight_kg, "weight_kg")
+        - _number(consumed_kg, "consumed_kg")
+    )
 
 
 def yield_pct(

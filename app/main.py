@@ -2,12 +2,13 @@
 
 from fastapi import FastAPI
 
-from app.routers import health
+from app.routers import health, purchases
 
 
 def create_app() -> FastAPI:
     application = FastAPI(title="MetalOps Lite", version="0.1.0")
     application.include_router(health.router, prefix="/api")
+    application.include_router(purchases.router, prefix="/api")
     return application
 
 

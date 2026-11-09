@@ -11,6 +11,7 @@ below turns them on. That makes local behaviour match PostgreSQL.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -60,3 +61,13 @@ def make_engine(url: str | None = None) -> Engine:
 
 engine = make_engine()
 SessionLocal = sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
+
+
+def get_session() -> Iterator[Session]:
+    """Yield one session per request and roll back a failed transaction."""
+    with SessionLocal() as session:
+        try:
+            yield session
+        except Exception:
+            session.rollback()
+            raise
