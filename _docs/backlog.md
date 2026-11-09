@@ -93,12 +93,13 @@ Acceptance criteria:
 - Total alloy kg sold for a heat cannot exceed its `output_kg`, otherwise 422 (R9).
 - `WE_PAY_BILL` requires `transport_billed` not greater than `transport_cost`; `CUSTOMER_ARRANGES` forces both to 0.
 - Profit on the heat detail updates after a sale is added.
+- Changing GST mode on a linked sale never changes heat profit; the R2/R7 invariance is re-tested with sales in both GST modes.
 - A heat whose sold alloy kg is below `output_kg` is provisional (R8). The heat list/detail labels its profit "provisional"; a fully sold heat is not provisional. The heat response exposes `sold_alloy_kg` and `is_provisional` so the UI does not infer it.
 - Monthly profit (R10) carries the same provisional state when any heat included in the month is provisional; the dashboard does not present it as final.
 - Deleting a heat that has one or more linked sales returns 409 and deletes nothing: the heat, its inputs and its sales remain. Sales must not be cascade-deleted. This mirrors #4's lot-delete guard.
 - Reducing a heat's `output_kg` below the total alloy kg already sold from it returns 422 and saves nothing. It may be reduced to exactly the sold kg. This mirrors #4's lot rule.
 
-Tests: each transport mode, each validation, profit before and after a sale, provisional label before and after full sale, monthly provisional propagation, delete heat with a linked sale returns 409, reduce output below sold kg returns 422, reduce output to exactly sold kg succeeds.
+Tests: each transport mode, each validation, profit before and after a sale, GST invariance with sales in both GST modes, provisional label before and after full sale, monthly provisional propagation, delete heat with a linked sale returns 409, reduce output below sold kg returns 422, reduce output to exactly sold kg succeeds.
 
 ## #7 [P0] Heat history and detail view
 Labels: frontend, backend · Depends on: #6
@@ -177,9 +178,10 @@ Acceptance criteria:
 - Full flow: create lot, create heat, create sale, check profit 3,160.00 (spec scenario 1).
 - Report upload and download works through the real API (scenario 2).
 - Stock guard scenario passes (scenario 3).
+- A concurrent heat-create race runs against PostgreSQL and proves the `FOR UPDATE` path keeps stock non-negative: one create succeeds, one returns 422.
 - `make test` runs unit and integration tests together and passes.
 
-Tests: the three scenarios.
+Tests: the three scenarios plus the PostgreSQL row-lock concurrency race.
 
 ## #13 [P0] Docker Compose for the full system
 Labels: devops · Depends on: #12
