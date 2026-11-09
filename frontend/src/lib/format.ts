@@ -29,3 +29,13 @@ export function formatKg(value: string | number): string {
 export function formatOptionalMoney(value: string | null): string {
   return value === null ? 'n/a' : formatMoney(value)
 }
+
+/** Format a percentage with two decimals. */
+export function formatPercent(value: string | number): string {
+  return `${weightFormatter.format(toNumber(value))}%`
+}
+
+/** Render a nullable percentage as `n/a`, matching the spec's wording. */
+export function formatOptionalPercent(value: string | null): string {
+  return value === null ? 'n/a' : formatPercent(value)
+}

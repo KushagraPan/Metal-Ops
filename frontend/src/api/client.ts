@@ -105,6 +105,48 @@ export interface PurchaseLot extends PurchaseLotInput {
   remaining_kg: string
 }
 
+export type Alloy = 'ADC12' | 'LM6'
+
+interface HeatFields {
+  heat_no: string
+  heat_date: string
+  duration_hours: string | null
+  notes: string | null
+  alloy: Alloy
+  output_kg: string
+  dross_kg: string
+  iron_scrap_kg: string
+  oil_cost: string
+  power_cost: string
+  labour_cost: string
+  other_cost: string
+}
+
+export interface HeatInputPayload {
+  lot_id: number
+  kg: string
+}
+
+export interface HeatInputRead extends HeatInputPayload {
+  supplier: string
+  purchase_date: string
+  landed_cost_per_kg: string | null
+}
+
+export interface HeatWrite extends HeatFields {
+  inputs: HeatInputPayload[]
+}
+
+export interface Heat extends HeatFields {
+  id: number
+  inputs: HeatInputRead[]
+  total_input_kg: string
+  yield_pct: string | null
+  scrap_cost: string
+  variable_costs: string
+  heat_profit: string | null
+}
+
 export const api = {
   health: (): Promise<HealthStatus> => request<HealthStatus>('/api/health'),
   purchases: {
@@ -126,5 +168,23 @@ export const api = {
       }),
     remove: (id: number): Promise<void> =>
       request<void>(`/api/purchases/${id}`, { method: 'DELETE' }),
+  },
+  heats: {
+    list: (): Promise<Heat[]> => request<Heat[]>('/api/heats'),
+    get: (id: number): Promise<Heat> => request<Heat>(`/api/heats/${id}`),
+    create: (input: HeatWrite): Promise<Heat> =>
+      request<Heat>('/api/heats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    update: (id: number, input: HeatWrite): Promise<Heat> =>
+      request<Heat>(`/api/heats/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    remove: (id: number): Promise<void> =>
+      request<void>(`/api/heats/${id}`, { method: 'DELETE' }),
   },
 }

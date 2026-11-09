@@ -13,11 +13,13 @@ from app.calc import (
     gst_summary,
     heat_profit,
     heat_scrap_cost,
+    heat_variable_costs,
     is_provisional,
     landed_cost_per_kg,
     monthly_profit,
     net_outbound_transport,
     remaining_kg,
+    total_input_kg,
     yield_pct,
 )
 
@@ -68,6 +70,26 @@ def test_heat_scrap_cost_sums_kg_times_landed_cost() -> None:
         == D("205200.00")
     )
     assert heat_scrap_cost([]) == D("0.00")
+
+
+def test_total_input_kg_sums_every_input() -> None:
+    assert total_input_kg([D("600"), D("400")]) == D("1000.00")
+
+
+def test_total_input_kg_with_no_inputs_is_zero() -> None:
+    assert total_input_kg([]) == D("0.00")
+
+
+def test_heat_variable_costs_sums_every_cost() -> None:
+    assert (
+        heat_variable_costs(
+            oil_cost=D("6000"),
+            power_cost=D("3000"),
+            labour_cost=D("2000"),
+            other_cost=D("0"),
+        )
+        == D("11000.00")
+    )
 
 
 def test_worked_example_yield() -> None:

@@ -50,6 +50,18 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.nav button.active {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .brand {
   margin: 0;
   font-size: 1.25rem;
@@ -99,9 +111,76 @@ h2 {
   padding: 1.25rem;
 }
 
-.purchase-form {
+.purchase-form,
+.heat-form {
   display: grid;
   gap: 1rem;
+}
+
+.input-lines {
+  display: grid;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.input-lines-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.input-line {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(9rem, 12rem) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.detail-grid > div {
+  padding: 0.75rem;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.detail-grid dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-grid dd {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-notes {
+  margin-top: 1rem;
 }
 
 .form-grid {
@@ -223,4 +302,14 @@ td.actions {
   display: flex;
   gap: 0.35rem;
   white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .nav {
+    margin-left: 0;
+  }
+
+  .input-line {
+    grid-template-columns: 1fr;
+  }
 }

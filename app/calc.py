@@ -128,6 +128,32 @@ def heat_scrap_cost(
     return _money(total)
 
 
+def total_input_kg(
+    inputs: Iterable[Decimal | int | str],
+) -> Decimal:
+    """The total kilograms a heat takes from all of its lots."""
+    total = sum(
+        (_number(kg, "kg") for kg in inputs),
+        Decimal("0"),
+    )
+    return _weight(total)
+
+
+def heat_variable_costs(
+    oil_cost: Decimal | int | str,
+    power_cost: Decimal | int | str,
+    labour_cost: Decimal | int | str,
+    other_cost: Decimal | int | str,
+) -> Decimal:
+    """R7: the variable costs charged to one heat."""
+    return _money(
+        _number(oil_cost, "oil_cost")
+        + _number(power_cost, "power_cost")
+        + _number(labour_cost, "labour_cost")
+        + _number(other_cost, "other_cost")
+    )
+
+
 def remaining_kg(
     weight_kg: Decimal | int | str,
     consumed_kg: Decimal | int | str,

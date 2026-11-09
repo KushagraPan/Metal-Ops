@@ -135,6 +135,8 @@ Derived, never stored as the source of truth:
 | `gst_amount` | R2 | `calc.gst_amount` |
 | `landed_cost_per_kg` | R3 | `calc.landed_cost_per_kg` |
 | `remaining_kg` | lot weight − sum of heat inputs | `calc.remaining_kg` / repository aggregate |
+| `total_input_kg` | sum of a heat's input lines | `calc.total_input_kg` |
+| `variable_costs` | oil + power + labour + other | `calc.heat_variable_costs` |
 | `yield_pct` | R5 | `calc.yield_pct` |
 | `net_outbound_transport` | R6 | `calc.net_outbound_transport` |
 | `heat_profit` | R7 | `calc.heat_profit` |
@@ -151,14 +153,20 @@ Storing derived money would create a second source of truth that drifts after ev
 
 `GET/POST /api/purchases` and `GET/PUT/DELETE /api/purchases/{id}`. The service stores only the lot columns; the response adds `gst_amount`, `landed_cost_per_kg`, `consumed_kg` and `remaining_kg`, all computed through `calc.py`. `SUPPLIER_DELIVERS` normalises freight to zero, `WE_PAY` requires a positive freight cost, and a lot cannot be reduced below the kilograms already consumed by heats or deleted while a heat references it.
 
+### Heats API
+
+`GET/POST /api/heats` and `GET/PUT/DELETE /api/heats/{id}`. The payload references lots by `lot_id`; repeated lines for one lot are summed before the stock check. A heat may have zero inputs, in which case yield and profit are `null` and the screen shows `n/a`.
+
 ### Create a heat (R4)
 
-1. Router validates the payload (alloy, output ≥ 0, at least one input, unique `heat_no`).
-2. Service opens one transaction.
-3. For each input, the repository reads the lot with `FOR UPDATE` (Postgres) and sums existing inputs.
-4. If `requested kg > remaining kg`, raise a domain error → **422**, and nothing is written.
+1. Router validates the payload: alloy, unique `heat_no`, output > 0, every weight and money value at most 2 decimal places, and every supplied input line `kg > 0`. The `inputs` list itself may be empty.
+2. Service starts one write transaction. On SQLite it issues `BEGIN IMMEDIATE`; on PostgreSQL it locks the referenced lot rows with `FOR UPDATE`.
+3. The repository sums the requested kilograms per lot and aggregates existing heat inputs. A lot's available kg is its weight minus consumption by other heats.
+4. If `requested kg > available kg`, or output exceeds total input when inputs exist, raise a domain error → **422**, and nothing is written.
 5. Insert the heat and its inputs, commit.
-6. The response includes computed yield and scrap cost from `calc.py`.
+6. The response includes computed total input, yield, scrap cost, variable costs and profit from `calc.py`.
+
+An edit excludes the heat's own existing inputs from the availability calculation, then replaces lines in the same transaction. A delete removes the input rows and releases their kilograms back to the lots. Until sales arrive in #6, heat profit has no revenue component and a heat with inputs shows a cost-only (normally negative) profit.
 
 ### Upload a spectro report (R13)
 
@@ -234,8 +242,9 @@ Working-capital planning, multi-year projections, multiple workspaces or roles, 
 | Backend/frontend scaffold and commands | #1 | Done |
 | Models, migration, seed | #2 | Done |
 | `calc.py` and unit tests | #3 | Done |
-| Purchases API and screen | #4 | In review |
-| Heats, sales APIs and screens | #5, #6 | Not started |
+| Purchases API and screen | #4 | Done |
+| Heats API and screen | #5 | In review |
+| Sales API and screen | #6 | Not started |
 | Heat history and detail | #7 | Not started |
 | Spectro reports and storage | #8 | Not started |
 | Expenses and dashboard figures | #9 | Not started |
