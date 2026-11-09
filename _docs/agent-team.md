@@ -8,6 +8,7 @@ How the work on MetalOps Lite is divided between humans and AI agents, and how a
 |---|---|---|---|
 | **Spec agent** | Claude, in chat | Owns the specification and the issue text. May change them between issues, never during one. | `product-spec.md`, `_docs/backlog.md`, issue bodies |
 | **Implementer** | DeepSeek V4 in OpenCode | Implements exactly one issue at a time, test-first. Cannot widen scope, cannot change the spec, cannot merge. | `app/`, `frontend/`, tests, migrations, the files the issue names |
+| **QA** | Verification agent, separate from the implementer | Checks a finished issue against its acceptance criteria and posts a PASS/FAIL verdict. Cannot fix, merge or close. | Verdict comment on the issue |
 | **Reviewer** | Human | Approves or rejects each issue. Merges pull requests. The only role that can accept work. | Review comments, merge commits |
 | **Responder** | Headless agent, issue #18 | Wakes on an alert, investigates, opens a fix pull request. No production access, never merges. | A branch, a pull request, `_docs/oncall-agent.md` |
 | **CI** | GitHub Actions | Not an agent, a gate. Runs `make test` on every pull request and blocks merge on failure. | Checks, build logs |
@@ -31,6 +32,7 @@ sequenceDiagram
     participant S as Spec agent
     participant T as GitHub issue
     participant I as Implementer
+    participant Q as QA
     participant CI as CI
     participant R as Human reviewer
 
@@ -40,15 +42,21 @@ sequenceDiagram
     I->>I: implements until green
     I->>I: runs make test locally
     I->>T: commits with "Refs #N", comments summary
-    I->>R: stops and waits
-    R->>CI: opens/updates pull request
-    CI-->>R: make test result
-    alt criteria met and green
-        R->>T: approves, merges, closes
-        R->>S: next issue
-    else gaps found
-        R->>T: review comments
-        R->>I: reopen scope on the same issue
+    I->>Q: stops and hands over
+    Q->>T: posts PASS/FAIL verdict
+    alt FAIL
+        Q->>I: verdict as input
+    else PASS
+        Q->>R: ready for review
+        R->>CI: opens/updates pull request
+        CI-->>R: make test result
+        alt criteria met and green
+            R->>T: approves, merges, closes
+            R->>S: next issue
+        else gaps found
+            R->>T: review comments
+            R->>I: reopen scope on the same issue
+        end
     end
 ```
 
@@ -65,13 +73,17 @@ The implementer reads the whole issue, including acceptance criteria, then:
 3. runs `make test` — unit and integration together;
 4. commits in small steps, each message ending with `Refs #N`;
 5. comments on the issue: what changed, how it was tested, anything surprising;
-6. stops. It does not pick up the next issue.
+6. stops and hands the issue to QA. It does not pick up the next issue.
 
-### 3. Review
+### 3. Verify
+
+The QA agent checks the finished issue against its acceptance criteria and posts a PASS/FAIL verdict. A FAIL returns the issue to the implementer with the verdict as input; a PASS releases it to the human reviewer. QA changes no code.
+
+### 4. Review
 
 The human reads the diff against the acceptance criteria, checks for unrelated changes, and either merges or sends the issue back. A merge is the only signal that the next issue may start.
 
-### 4. Respond
+### 5. Respond
 
 On an alert, the responder follows `_docs/oncall-agent.md`: read the logs and traces for the failing trace ID, reproduce, write a failing test, fix, open a pull request. It stops there.
 
@@ -82,9 +94,10 @@ Each hand-off has an artefact and a gate. If the artefact is missing, the next r
 | From → To | Artefact | Gate |
 |---|---|---|
 | Spec → Implementer | Issue with criteria and named tests | Criteria are observable; dependencies merged |
+| Implementer → QA | Issue comment and commits | States what changed, how it was tested, and any risk; tests green |
+| QA → Reviewer | PASS/FAIL comment | Every criterion has a verdict; each FAIL states expected vs actual |
 | Implementer → CI | Branch and pull request | `make test` green locally |
 | CI → Reviewer | Check result | All tests pass; no skipped tests hiding failures |
-| Implementer → Reviewer | Issue comment | States what changed, how it was tested, and any risk |
 | Reviewer → Implementer | Merge or review comments | Criteria met and no unrelated changes |
 | Alert → Responder | Alert payload with service, window and trace IDs | Threshold from issue #17 crossed |
 | Responder → Reviewer | Pull request with a new failing-then-passing test | CI green; no production write access used |
@@ -104,7 +117,8 @@ The tracker is the record, not the chat. For each closed issue the repository ho
 1. the issue with its acceptance criteria;
 2. commits referencing it (`Refs #N`);
 3. the implementer's summary comment;
-4. the review outcome.
+4. the QA verdict comment;
+5. the review outcome.
 
 `git log --grep 'Refs #'` must show one or more commits per closed issue. An issue closed without them is treated as unverified.
 
@@ -120,4 +134,4 @@ The tracker is the record, not the chat. For each closed issue the repository ho
 
 ## Current state
 
-Wave 0 (repository bootstrap and process documents) is complete. No implementation issue has started. The next action belongs to the human reviewer: authenticate `gh`, publish the repository, and open issue #1.
+Wave 0 and issue #1 are complete. Issue #2 is implemented, tested and waiting for human review. The next action belongs to the reviewer: review issue #2 before issue #3 starts.

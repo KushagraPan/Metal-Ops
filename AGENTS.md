@@ -8,7 +8,8 @@ MetalOps Lite tracks scrap purchases, furnace heats, sales and spectro reports f
 2. [`_docs/architecture.md`](_docs/architecture.md) — layers, data model, key flows, deployment topology.
 3. [`_docs/backlog.md`](_docs/backlog.md) — issues #1–#19. The GitHub issue is authoritative; this file mirrors it.
 4. [`_docs/agent-team.md`](_docs/agent-team.md) — roles, hand-offs and the evidence each role leaves.
-5. [`_docs/oncall-agent.md`](_docs/oncall-agent.md) — the alert-to-fix loop and its guardrails.
+5. [`_docs/process.md`](_docs/process.md) — how work is organized, including the QA verdict loop.
+6. [`_docs/oncall-agent.md`](_docs/oncall-agent.md) — the alert-to-fix loop and its guardrails.
 
 ## Repository layout
 
@@ -24,6 +25,9 @@ MetalOps Lite tracks scrap purchases, furnace heats, sales and spectro reports f
 │   ├── backlog.md             issues #1–#19
 │   ├── architecture.md        design and decisions
 │   ├── agent-team.md          roles and hand-offs
+│   ├── process.md             process and QA verdict loop
+│   ├── team/
+│   │   └── qa-engineer.md     QA role contract
 │   └── oncall-agent.md        responder contract
 ├── scripts/
 │   └── create_issues.py       publishes _docs/backlog.md to GitHub
@@ -46,6 +50,7 @@ MetalOps Lite tracks scrap purchases, furnace heats, sales and spectro reports f
 
 - **Spec agent (Claude, in chat):** drafts the spec and the issues. Does not write application code.
 - **Implementer (DeepSeek V4 in OpenCode):** implements one issue at a time.
+- **QA (verification agent):** checks a finished issue against its acceptance criteria and posts a PASS/FAIL verdict. Does not fix, merge or close. Follows [`_docs/team/qa-engineer.md`](_docs/team/qa-engineer.md).
 - **Reviewer (human):** reviews every issue before the next one starts. The only role that merges.
 - **Responder (headless agent, issue #18):** wakes on an alert, investigates, and opens a fix pull request. Never merges and has no production access.
 
