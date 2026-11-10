@@ -82,6 +82,7 @@ Prerequisites: Python 3.11+, Node 20+ and GNU Make. The first run creates `.venv
 | `make install` | Create the virtualenv and install dependencies | now |
 | `make migrate` | Apply Alembic migrations to `DATABASE_URL` (SQLite by default) | now |
 | `make seed` | Apply migrations, then load fictional demo data | now |
+| `make reset-db` | Delete the local SQLite dev database, migrate and reseed | now |
 | `docker compose up` | Frontend, API, PostgreSQL and the observability stack | issue #13 |
 
 ## Documentation

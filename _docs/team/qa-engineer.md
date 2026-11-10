@@ -71,6 +71,7 @@ Rules:
 - No merge, close, reopen or label changes. The human reviewer decides.
 - No "while I'm here" fixes. A defect is a verdict line, not a commit.
 - No real business data in the verdict. IDs, counts and command output only.
+- Run probes against a separate temporary database file, never the dev database. Delete probe scripts when done.
 
 ## Definition of done
 

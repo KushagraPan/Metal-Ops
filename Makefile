@@ -13,7 +13,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev test typecheck clean migrate seed
+.PHONY: help install dev test typecheck clean migrate seed reset-db
 
 help:
 	@echo make dev        API on http://127.0.0.1:8000 and frontend on http://127.0.0.1:5173
@@ -21,6 +21,7 @@ help:
 	@echo make install    create the virtualenv and install dependencies
 	@echo make migrate    apply Alembic migrations to DATABASE_URL
 	@echo make seed       migrate, then insert the fictional demo data
+	@echo make reset-db   delete the local dev database, migrate and reseed
 
 install: .venv/.installed frontend/node_modules/.installed
 
@@ -39,6 +40,10 @@ migrate: install
 
 seed: migrate
 	$(VENV_PY) -m app.seed
+
+reset-db: install
+	$(VENV_PY) scripts/reset_db.py
+	$(MAKE) seed
 
 dev: install
 	$(VENV_PY) scripts/dev.py
