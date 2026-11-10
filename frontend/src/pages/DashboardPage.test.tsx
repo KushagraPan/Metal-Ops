@@ -112,14 +112,26 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage initialMonth="2026-10" />)
 
-    expect(await screen.findByText('₹8,31,370.00')).toBeDefined()
-    expect(screen.getByText('-₹6,39,830.00')).toBeDefined()
+    // Revenue card shows whole rupees
+    expect(await screen.findByText('₹8,31,370')).toBeDefined()
+    // Profit card shows whole rupees with leading minus
+    expect(screen.getByText('-₹6,39,830')).toBeDefined()
     const profitCard = screen.getByText('Profit this month').closest('div')
     expect(profitCard).not.toBeNull()
     expect(within(profitCard!).getByText('provisional')).toBeDefined()
-    expect(screen.getByText('n/a')).toBeDefined() // break-even is n/a
-    expect(screen.getAllByText(/estimate/i).length).toBeGreaterThan(0) // GST estimate labelled "estimate"
-    expect(screen.getByText('H-2026-001')).toBeDefined()
+
+    // Break-even card shows "3 heats (break-even: n/a)" and provisional note
+    const breakEvenCard = screen.getByText('Break-even progress').closest('div')
+    expect(breakEvenCard).not.toBeNull()
+    expect(within(breakEvenCard!).getByText(/3 heats \(break-even: n\/a\)/i)).toBeDefined()
+    expect(within(breakEvenCard!).getByText('provisional')).toBeDefined()
+
+    // GST estimate card
+    expect(screen.getAllByText(/estimate/i).length).toBeGreaterThan(0)
+
+    // Recent heats table shows 2 decimals for profit
+    expect(screen.getAllByText('H-2026-001').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('₹3,750.00')).toBeDefined()
   })
 
   it('changes all figures when the month selector is changed', async () => {
@@ -129,7 +141,7 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage initialMonth="2026-10" />)
 
-    await screen.findByText('₹8,31,370.00')
+    await screen.findByText('₹8,31,370')
     const profitCard = screen.getByText('Profit this month').closest('div')
     expect(profitCard).not.toBeNull()
     expect(within(profitCard!).getByText('provisional')).toBeDefined()
@@ -141,12 +153,35 @@ describe('DashboardPage', () => {
       expect(api.dashboard.get).toHaveBeenCalledWith('2026-11')
     })
 
-    expect(await screen.findByText('₹2,22,500.00')).toBeDefined()
+    expect(await screen.findByText('₹2,22,500')).toBeDefined()
     const updatedCard = screen.getByText('Profit this month').closest('div')
-    expect(within(updatedCard!).getByText('₹25,000.00')).toBeDefined()
-    expect(within(updatedCard!).queryByText('provisional')).toBeNull() // non-provisional in Nov
-    expect(screen.getByText('2.00')).toBeDefined() // break-even heats
-    expect(screen.getByText('H-2026-002')).toBeDefined()
+    expect(within(updatedCard!).getByText('₹25,000')).toBeDefined()
+    expect(within(updatedCard!).queryByText('provisional')).toBeNull()
+
+    // Nov break-even progress: "1 of 2 heats"
+    const breakEvenCard = screen.getByText('Break-even progress').closest('div')
+    expect(within(breakEvenCard!).getByText(/1 of 2 heats/i)).toBeDefined()
+    expect(screen.getAllByText('H-2026-002').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows empty state when no heats are recorded', async () => {
+    vi.mocked(api.dashboard.get).mockResolvedValueOnce({
+      ...novDashboard,
+      heats: [],
+      heats_count: 0,
+      break_even_heats: null,
+    })
+
+    render(<DashboardPage initialMonth="2026-11" />)
+    expect(await screen.findByText(/No heats recorded in this month/i)).toBeDefined()
+  })
+
+  it('shows error banner when loading fails', async () => {
+    vi.mocked(api.dashboard.get).mockRejectedValueOnce(new Error('Failed to load dashboard data.'))
+
+    render(<DashboardPage initialMonth="2026-11" />)
+    expect(await screen.findByRole('alert')).toBeDefined()
+    expect(screen.getByText('Failed to load dashboard data.')).toBeDefined()
   })
 })
 
