@@ -159,19 +159,19 @@ export default function PurchaseForm({
   const supplierDelivers = form.transport_mode === 'SUPPLIER_DELIVERS'
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="border-b border-gray-200 pb-3 mb-5 dark:border-slate-800">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">
+    <section className="app-card">
+      <div className="border-b border-slate-200 pb-3 mb-5 dark:border-slate-800">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
           {initial === null ? 'New purchase lot' : `Edit lot #${initial.id}`}
         </h2>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="flex flex-col">
             <label
               htmlFor="purchase-date"
-              className="text-xs font-semibold text-gray-700 dark:text-slate-300"
+              className="app-label"
             >
               Purchase date
             </label>
@@ -183,14 +183,14 @@ export default function PurchaseForm({
                 setField('purchase_date', event.target.value)
               }
               required
-              className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="app-input"
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
+          <div className="flex flex-col">
             <label
               htmlFor="purchase-supplier"
-              className="text-xs font-semibold text-gray-700 dark:text-slate-300"
+              className="app-label"
             >
               Supplier
             </label>
@@ -202,14 +202,14 @@ export default function PurchaseForm({
               placeholder="Supplier name"
               onChange={(event) => setField('supplier', event.target.value)}
               required
-              className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="app-input"
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col">
             <label
               htmlFor="purchase-weight"
-              className="text-xs font-semibold text-gray-700 dark:text-slate-300"
+              className="app-label"
             >
               Weight (kg)
             </label>
@@ -223,14 +223,14 @@ export default function PurchaseForm({
               value={form.weight_kg}
               onChange={(event) => setField('weight_kg', event.target.value)}
               required
-              className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="app-input"
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col">
             <label
               htmlFor="purchase-rate"
-              className="text-xs font-semibold text-gray-700 dark:text-slate-300"
+              className="app-label"
             >
               Rate (₹/kg)
             </label>
@@ -244,12 +244,12 @@ export default function PurchaseForm({
               value={form.rate_per_kg}
               onChange={(event) => setField('rate_per_kg', event.target.value)}
               required
-              className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="app-input"
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">
+          <div className="flex flex-col">
+            <span className="app-label">
               GST mode
             </span>
             <CustomSelect
@@ -266,8 +266,8 @@ export default function PurchaseForm({
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">
+          <div className="flex flex-col">
+            <span className="app-label">
               Transport mode
             </span>
             <CustomSelect
@@ -294,10 +294,10 @@ export default function PurchaseForm({
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col">
             <label
               htmlFor="purchase-transport-cost"
-              className="text-xs font-semibold text-gray-700 dark:text-slate-300"
+              className="app-label"
             >
               Transport cost
             </label>
@@ -314,15 +314,15 @@ export default function PurchaseForm({
               }
               disabled={supplierDelivers}
               required={!supplierDelivers}
-              className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800/50"
+              className="app-input"
             />
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col">
           <label
             htmlFor="purchase-notes"
-            className="text-xs font-semibold text-gray-700 dark:text-slate-300"
+            className="app-label"
           >
             Notes (optional)
           </label>
@@ -332,7 +332,7 @@ export default function PurchaseForm({
             rows={2}
             placeholder="Optional purchase lot notes..."
             onChange={(event) => setField('notes', event.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white p-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="w-full rounded-input border border-slate-200 bg-white p-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </div>
 
@@ -345,7 +345,7 @@ export default function PurchaseForm({
         {error !== null ? (
           <div
             role="alert"
-            className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+            className="rounded-input border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
           >
             {error}
           </div>
@@ -354,7 +354,7 @@ export default function PurchaseForm({
         {saved !== null ? (
           <div
             role="status"
-            className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+            className="rounded-input border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
           >
             Saved {saved.supplier}. GST {formatMoney(saved.gst_amount)} ·
             landed cost {formatOptionalMoney(saved.landed_cost_per_kg)}/kg ·
@@ -366,7 +366,7 @@ export default function PurchaseForm({
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-amber-500 px-5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="app-btn-primary"
           >
             {saving
               ? 'Saving...'
@@ -378,7 +378,7 @@ export default function PurchaseForm({
             <button
               type="button"
               onClick={onCancel}
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="inline-flex h-10 items-center justify-center rounded-input border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Cancel
             </button>

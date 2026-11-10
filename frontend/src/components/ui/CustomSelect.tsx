@@ -109,7 +109,7 @@ export function CustomSelect({
         ))}
       </select>
 
-      {/* 1. Trigger button: h-10, rounded-lg, border-gray-200, focus:ring-amber-500, Custom chevron icon */}
+      {/* 1. Trigger button: app-select-trigger, Custom chevron icon */}
       <button
         type="button"
         disabled={disabled}
@@ -117,28 +117,28 @@ export function CustomSelect({
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-slate-900 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 ${
+        className={`app-select-trigger ${
           isOpen
-            ? 'border-amber-500 ring-2 ring-amber-500/20'
-            : 'hover:border-gray-300 dark:hover:border-slate-600'
-        } focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60`}
+            ? 'border-brand-500 ring-2 ring-brand-500/20'
+            : 'hover:border-slate-300 dark:hover:border-slate-600'
+        }`}
       >
         <span className="truncate font-normal">
           {selectedOption ? selectedOption.label : 'Select an option'}
         </span>
         <ChevronDown
           className={`h-4 w-4 text-slate-500 transition-transform duration-200 dark:text-slate-400 ${
-            isOpen ? 'rotate-180 text-amber-500' : ''
+            isOpen ? 'rotate-180 text-brand-500' : ''
           }`}
         />
       </button>
 
-      {/* 2. Options container (dropdown list): Position: absolute, z-index 50, top full + 6px offset, Background: bg-white, Border: 1px solid #e5e7eb (border-gray-200), Rounded corners: rounded-xl, Box shadow: shadow-xl, Overflow: hidden */}
+      {/* 2. Options container (dropdown list): Position: absolute, z-index 50, top full + 6px offset */}
       {isOpen && (
         <ul
           role="listbox"
           aria-label={label}
-          className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"
+          className="shadow-dropdown absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-card border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
         >
           {options.map((opt) => {
             const isSelected = opt.value === value
@@ -150,8 +150,8 @@ export function CustomSelect({
                 onClick={() => handleSelect(opt.value)}
                 className={`cursor-pointer px-4 py-2.5 text-sm transition-colors ${
                   isSelected
-                    ? 'bg-amber-500 font-medium text-white'
-                    : 'text-slate-900 hover:bg-gray-100 dark:text-slate-100 dark:hover:bg-slate-800'
+                    ? 'bg-brand-500 font-medium text-white'
+                    : 'text-slate-900 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 {opt.label}

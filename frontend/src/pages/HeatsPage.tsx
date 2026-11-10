@@ -335,10 +335,16 @@ export default function HeatsPage() {
                       {formatMoney(heat.scrap_cost)}
                     </td>
                     <td className="numeric">
-                      {formatOptionalMoney(heat.heat_profit)}
-                      {heat.is_provisional ? (
-                        <span className="pill">provisional</span>
-                      ) : null}
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="tabular-nums font-medium">
+                          {formatOptionalMoney(heat.heat_profit)}
+                        </span>
+                        {heat.is_provisional ? (
+                          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                            provisional
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="actions">
                       <button

@@ -387,24 +387,23 @@ export default function DashboardPage({
                             <td className="py-2.5 px-3 text-right tabular-nums text-slate-900 dark:text-slate-100">
                               {formatOptionalPercent(heat.yield_pct)}
                             </td>
-                            <td className="py-2.5 px-3 text-right tabular-nums">
-                              <span
-                                className={
-                                  heat.heat_profit !== null && Number(heat.heat_profit) < 0
-                                    ? 'text-rose-600 dark:text-rose-400 font-semibold'
-                                    : 'font-semibold text-slate-900 dark:text-slate-100'
-                                }
-                              >
-                                {formatOptionalMoney(heat.heat_profit)}
-                              </span>
-                              {heat.is_provisional && (
-                                <Badge
-                                  variant="amber"
-                                  className="ml-1.5 text-[9px] uppercase tracking-wide px-1.5 py-0"
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="flex flex-col items-end gap-1">
+                                <span
+                                  className={`tabular-nums font-medium ${
+                                    heat.heat_profit !== null && Number(heat.heat_profit) < 0
+                                      ? 'text-rose-600 dark:text-rose-400'
+                                      : 'text-slate-900 dark:text-slate-100'
+                                  }`}
                                 >
-                                  provisional
-                                </Badge>
-                              )}
+                                  {formatOptionalMoney(heat.heat_profit)}
+                                </span>
+                                {heat.is_provisional && (
+                                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                                    provisional
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}

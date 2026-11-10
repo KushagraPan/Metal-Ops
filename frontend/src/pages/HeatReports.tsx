@@ -260,7 +260,7 @@ export default function HeatReports({
       {/* Edit Form */}
       {editing !== null && (
         <form
-          className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50 space-y-3"
+          className="app-card space-y-3"
           onSubmit={handleEdit}
         >
           <div className="border-b border-slate-200 pb-2 dark:border-slate-800">
@@ -269,8 +269,8 @@ export default function HeatReports({
             </h4>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="edit-result" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <div className="flex flex-col">
+              <label htmlFor="edit-result" className="app-label">
                 Edit result
               </label>
               <select
@@ -279,15 +279,15 @@ export default function HeatReports({
                 onChange={(event) =>
                   setEditResult(event.target.value as ReportResult)
                 }
-                className="h-10 w-full cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="app-input cursor-pointer"
               >
                 <option value="PENDING">Pending</option>
                 <option value="PASS">Pass</option>
                 <option value="FAIL">Fail</option>
               </select>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="edit-notes" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <div className="flex flex-col">
+              <label htmlFor="edit-notes" className="app-label">
                 Edit notes
               </label>
               <input
@@ -295,7 +295,7 @@ export default function HeatReports({
                 type="text"
                 value={editNotes}
                 onChange={(event) => setEditNotes(event.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="app-input"
               />
             </div>
           </div>
@@ -303,14 +303,14 @@ export default function HeatReports({
             <button
               type="button"
               onClick={() => setEditingId(null)}
-              className="h-9 px-4 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              className="inline-flex h-10 items-center justify-center rounded-input border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="h-9 px-4 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+              className="app-btn-primary"
             >
               Save changes
             </button>
@@ -319,7 +319,7 @@ export default function HeatReports({
       )}
 
       {/* Upload Form Container */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40 space-y-3">
+      <div className="app-card space-y-4">
         {/* 4. Structured Header for Upload Form */}
         <div className="border-b border-slate-200/80 pb-2 dark:border-slate-800">
           <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -334,10 +334,10 @@ export default function HeatReports({
           {/* 1. Responsive Grid & 2. Uniform h-10 Controls */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             {/* Field 1: Sample number */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col">
               <label
                 htmlFor="upload-sample-no"
-                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                className="app-label"
               >
                 Sample number
               </label>
@@ -348,18 +348,18 @@ export default function HeatReports({
                 value={sampleNo}
                 placeholder="e.g. S-2026-001"
                 onChange={(event) => setSampleNo(event.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="app-input"
               />
             </div>
 
             {/* Field 2: Custom PDF File Upload (3. Hidden native input with styled trigger) */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <div className="flex flex-col">
+              <span className="app-label">
                 PDF file
               </span>
               <label
                 htmlFor="upload-pdf-file"
-                className="flex h-10 cursor-pointer items-center justify-between rounded-md border border-dashed border-slate-300 bg-white px-3 text-sm text-slate-600 transition hover:border-amber-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-amber-500 dark:hover:bg-slate-800"
+                className="app-input flex cursor-pointer items-center justify-between border-dashed hover:border-brand-500"
               >
                 <span className="truncate pr-2">
                   {file ? file.name : 'Choose PDF...'}
@@ -380,10 +380,10 @@ export default function HeatReports({
             </div>
 
             {/* Field 3: Result */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col">
               <label
                 htmlFor="upload-result"
-                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                className="app-label"
               >
                 Result
               </label>
@@ -393,7 +393,7 @@ export default function HeatReports({
                 onChange={(event) =>
                   setResult(event.target.value as ReportResult)
                 }
-                className="h-10 w-full cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="app-input cursor-pointer"
               >
                 <option value="PENDING">Pending</option>
                 <option value="PASS">Pass</option>
@@ -402,10 +402,10 @@ export default function HeatReports({
             </div>
 
             {/* Field 4: Notes (Single-line input, h-10) */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col">
               <label
                 htmlFor="upload-notes"
-                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                className="app-label"
               >
                 Notes
               </label>
@@ -415,7 +415,7 @@ export default function HeatReports({
                 value={notes}
                 placeholder="Optional notes"
                 onChange={(event) => setNotes(event.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                className="app-input"
               />
             </div>
           </div>
@@ -424,7 +424,7 @@ export default function HeatReports({
             <button
               type="submit"
               disabled={uploading}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-amber-500 px-5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-50"
+              className="app-btn-primary"
             >
               {uploading ? 'Uploading...' : 'Upload report'}
             </button>
