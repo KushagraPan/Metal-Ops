@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import get_session, make_engine
 from app.main import app
-from app.models import Base, Setting
+from app.models import Base, ReportResult, Setting, SpectroReport
 
 D = Decimal
 
@@ -91,6 +91,12 @@ def client(
 
 def create_lot(client: TestClient, **overrides: object) -> dict[str, object]:
     response = client.post("/api/purchases", json=lot_payload(**overrides))
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def create_heat(client: TestClient, **overrides: object) -> dict[str, object]:
+    response = client.post("/api/heats", json=heat_payload(**overrides))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -620,3 +626,125 @@ def test_concurrent_creates_cannot_overconsume_a_lot(
     assert len(client.get("/api/heats").json()) == 1
     purchase = client.get(f"/api/purchases/{lot['id']}").json()
     assert purchase["remaining_kg"] == "0.00"
+
+
+def test_heat_search_finds_a_past_month_by_heat_no(
+    client: TestClient,
+) -> None:
+    old = create_heat(
+        client,
+        heat_no="H-OLD-001",
+        heat_date="2025-02-10",
+        inputs=[],
+    )
+    create_heat(
+        client,
+        heat_no="H-NEW-001",
+        heat_date="2026-10-15",
+        inputs=[],
+    )
+
+    response = client.get("/api/heats", params={"heat_no": "old"})
+
+    assert response.status_code == 200, response.text
+    assert [heat["id"] for heat in response.json()] == [old["id"]]
+
+
+def test_heat_filters_combine_date_range_and_alloy(
+    client: TestClient,
+) -> None:
+    create_heat(
+        client,
+        heat_no="H-OLD-ADC",
+        heat_date="2025-06-01",
+        alloy="ADC12",
+        inputs=[],
+    )
+    create_heat(
+        client,
+        heat_no="H-OLD-LM6",
+        heat_date="2025-06-02",
+        alloy="LM6",
+        inputs=[],
+    )
+    recent_adc = create_heat(
+        client,
+        heat_no="H-NEW-ADC",
+        heat_date="2026-10-15",
+        alloy="ADC12",
+        inputs=[],
+    )
+    create_heat(
+        client,
+        heat_no="H-NEW-LM6",
+        heat_date="2026-10-16",
+        alloy="LM6",
+        inputs=[],
+    )
+
+    response = client.get(
+        "/api/heats",
+        params={
+            "from_date": "2026-01-01",
+            "to_date": "2026-12-31",
+            "alloy": "ADC12",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert [heat["id"] for heat in response.json()] == [recent_adc["id"]]
+
+
+def test_heat_filter_by_report_result_combines_with_alloy(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+) -> None:
+    passed = create_heat(
+        client,
+        heat_no="H-PASS",
+        alloy="ADC12",
+        inputs=[],
+    )
+    failed = create_heat(
+        client,
+        heat_no="H-FAIL",
+        alloy="LM6",
+        inputs=[],
+    )
+    create_heat(client, heat_no="H-NO-REPORT", inputs=[])
+
+    with session_factory() as session:
+        session.add_all(
+            [
+                SpectroReport(
+                    heat_id=passed["id"],
+                    sample_no=1,
+                    file_key="test-pass.pdf",
+                    original_filename="pass.pdf",
+                    size_bytes=10,
+                    result=ReportResult.PASS,
+                ),
+                SpectroReport(
+                    heat_id=failed["id"],
+                    sample_no=1,
+                    file_key="test-fail.pdf",
+                    original_filename="fail.pdf",
+                    size_bytes=10,
+                    result=ReportResult.FAIL,
+                ),
+            ]
+        )
+        session.commit()
+
+    pass_response = client.get(
+        "/api/heats",
+        params={"report_result": "PASS", "alloy": "ADC12"},
+    )
+    fail_response = client.get(
+        "/api/heats", params={"report_result": "PASS", "alloy": "LM6"}
+    )
+
+    assert pass_response.status_code == 200, pass_response.text
+    assert [heat["id"] for heat in pass_response.json()] == [passed["id"]]
+    assert fail_response.status_code == 200, fail_response.text
+    assert fail_response.json() == []

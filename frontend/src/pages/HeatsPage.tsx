@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../api/client'
-import type { Heat, PurchaseLot } from '../api/client'
+import type {
+  Alloy,
+  Heat,
+  HeatFilters,
+  PurchaseLot,
+  ReportResult,
+} from '../api/client'
 import {
   formatKg,
   formatMoney,
@@ -10,6 +16,22 @@ import {
 } from '../lib/format'
 import HeatDetail from './HeatDetail'
 import HeatForm from './HeatForm'
+
+interface FilterState {
+  from_date: string
+  to_date: string
+  alloy: '' | Alloy
+  report_result: '' | ReportResult
+  heat_no: string
+}
+
+const EMPTY_FILTERS: FilterState = {
+  from_date: '',
+  to_date: '',
+  alloy: '',
+  report_result: '',
+  heat_no: '',
+}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong.'
@@ -22,16 +44,57 @@ export default function HeatsPage() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Heat | null>(null)
   const [selected, setSelected] = useState<Heat | null>(null)
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let active = true
 
-    Promise.all([api.heats.list(), api.purchases.list()])
-      .then(([heatRows, lotRows]) => {
+    api.purchases
+      .list()
+      .then((lotRows) => {
         if (active) {
-          setHeats(heatRows)
           setLots(lotRows)
           setError(null)
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (active) {
+          setError(messageOf(loadError))
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const query: HeatFilters = {}
+    if (filters.from_date !== '') {
+      query.from_date = filters.from_date
+    }
+    if (filters.to_date !== '') {
+      query.to_date = filters.to_date
+    }
+    if (filters.alloy !== '') {
+      query.alloy = filters.alloy
+    }
+    if (filters.report_result !== '') {
+      query.report_result = filters.report_result
+    }
+    if (filters.heat_no.trim() !== '') {
+      query.heat_no = filters.heat_no
+    }
+
+    setLoading(true)
+    setError(null)
+    api.heats
+      .list(query)
+      .then((heatRows) => {
+        if (active) {
+          setHeats(heatRows)
         }
       })
       .catch((loadError: unknown) => {
@@ -48,7 +111,7 @@ export default function HeatsPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [filters, refreshKey])
 
   async function refreshLots(): Promise<void> {
     try {
@@ -60,14 +123,9 @@ export default function HeatsPage() {
   }
 
   function handleSaved(heat: Heat): void {
-    setHeats((current) => {
-      const exists = current.some((item) => item.id === heat.id)
-      return exists
-        ? current.map((item) => (item.id === heat.id ? heat : item))
-        : [heat, ...current]
-    })
     setEditing(null)
     setSelected(heat)
+    setRefreshKey((current) => current + 1)
     void refreshLots()
   }
 
@@ -78,18 +136,25 @@ export default function HeatsPage() {
     setError(null)
     try {
       await api.heats.remove(heat.id)
-      setHeats((current) => current.filter((item) => item.id !== heat.id))
       if (editing?.id === heat.id) {
         setEditing(null)
       }
       if (selected?.id === heat.id) {
         setSelected(null)
       }
+      setRefreshKey((current) => current + 1)
       void refreshLots()
     } catch (deleteError) {
       setError(messageOf(deleteError))
     }
   }
+
+  const hasFilters =
+    filters.from_date !== '' ||
+    filters.to_date !== '' ||
+    filters.alloy !== '' ||
+    filters.report_result !== '' ||
+    filters.heat_no.trim() !== ''
 
   return (
     <section className="page">
@@ -127,11 +192,106 @@ export default function HeatsPage() {
       ) : null}
 
       <section className="card">
+        <h2>Find heats</h2>
+        <div className="form-grid">
+          <label className="field">
+            <span>From date</span>
+            <input
+              type="date"
+              value={filters.from_date}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  from_date: event.target.value,
+                }))
+              }
+            />
+          </label>
+
+          <label className="field">
+            <span>To date</span>
+            <input
+              type="date"
+              value={filters.to_date}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  to_date: event.target.value,
+                }))
+              }
+            />
+          </label>
+
+          <label className="field">
+            <span>Alloy</span>
+            <select
+              value={filters.alloy}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  alloy: event.target.value as '' | Alloy,
+                }))
+              }
+            >
+              <option value="">All alloys</option>
+              <option value="ADC12">ADC12</option>
+              <option value="LM6">LM6</option>
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Report result</span>
+            <select
+              value={filters.report_result}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  report_result: event.target.value as '' | ReportResult,
+                }))
+              }
+            >
+              <option value="">Any report result</option>
+              <option value="PENDING">Pending</option>
+              <option value="PASS">Pass</option>
+              <option value="FAIL">Fail</option>
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Heat number</span>
+            <input
+              type="search"
+              placeholder="e.g. H-1001"
+              value={filters.heat_no}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  heat_no: event.target.value,
+                }))
+              }
+            />
+          </label>
+        </div>
+        <div className="actions">
+          <button
+            type="button"
+            onClick={() => setFilters({ ...EMPTY_FILTERS })}
+          >
+            Clear filters
+          </button>
+        </div>
+      </section>
+
+      <section className="card">
         <h2>Heats</h2>
         {loading ? (
           <p>Loading heats...</p>
         ) : heats.length === 0 ? (
-          <p className="muted">No heats yet. Add the first heat above.</p>
+          <p className="muted">
+            {hasFilters
+              ? 'No heats match these filters.'
+              : 'No heats yet. Add the first heat above.'}
+          </p>
         ) : (
           <div className="table-wrap">
             <table>

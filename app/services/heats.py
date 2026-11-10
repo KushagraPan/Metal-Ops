@@ -22,7 +22,7 @@ from app.calc import (
     total_sales_revenue,
     yield_pct,
 )
-from app.models import Heat, HeatInput, PurchaseLot
+from app.models import Alloy, Heat, HeatInput, PurchaseLot, ReportResult
 from app.repositories.heats import HeatRepository
 from app.repositories.settings import SettingsRepository
 from app.schemas.heats import HeatInputPayload, HeatWrite
@@ -90,8 +90,25 @@ class HeatService:
         self.heats = HeatRepository(session)
         self.settings = SettingsRepository(session)
 
-    def list(self) -> list[HeatView]:
-        return [self._view(heat) for heat in self.heats.list()]
+    def list(
+        self,
+        *,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        alloy: Alloy | None = None,
+        report_result: ReportResult | None = None,
+        heat_no: str | None = None,
+    ) -> list[HeatView]:
+        return [
+            self._view(heat)
+            for heat in self.heats.list(
+                from_date=from_date,
+                to_date=to_date,
+                alloy=alloy,
+                report_result=report_result,
+                heat_no=heat_no,
+            )
+        ]
 
     def get(self, heat_id: int) -> HeatView:
         return self._view(self._get_or_raise(heat_id))

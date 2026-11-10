@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Heat, HeatInput, PurchaseLot
+from app.models import (
+    Alloy,
+    Heat,
+    HeatInput,
+    PurchaseLot,
+    ReportResult,
+    SpectroReport,
+)
 
 
 def _decimal(value: object) -> Decimal:
@@ -36,7 +44,15 @@ class HeatRepository:
         if self._dialect() == "sqlite" and not self.session.in_transaction():
             self.session.execute(text("BEGIN IMMEDIATE"))
 
-    def list(self) -> list[Heat]:
+    def list(
+        self,
+        *,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        alloy: Alloy | None = None,
+        report_result: ReportResult | None = None,
+        heat_no: str | None = None,
+    ) -> list[Heat]:
         statement = (
             select(Heat)
             .options(
@@ -45,6 +61,26 @@ class HeatRepository:
             )
             .order_by(Heat.heat_date.desc(), Heat.id.desc())
         )
+        if from_date is not None:
+            statement = statement.where(Heat.heat_date >= from_date)
+        if to_date is not None:
+            statement = statement.where(Heat.heat_date <= to_date)
+        if alloy is not None:
+            statement = statement.where(Heat.alloy == alloy)
+        if report_result is not None:
+            statement = statement.where(
+                Heat.reports.any(SpectroReport.result == report_result)
+            )
+        if heat_no is not None and heat_no.strip():
+            escaped = (
+                heat_no.strip()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            statement = statement.where(
+                Heat.heat_no.ilike(f"%{escaped}%", escape="\\")
+            )
         return list(self.session.scalars(statement).unique())
 
     def get(self, heat_id: int, *, for_update: bool = False) -> Heat | None:

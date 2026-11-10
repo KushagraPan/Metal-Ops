@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '../api/client'
@@ -59,5 +66,47 @@ describe('HeatsPage', () => {
 
     expect(await screen.findByText('H-1001')).toBeDefined()
     expect(screen.getByText('provisional')).toBeDefined()
+  })
+
+  it('sends combined filters to the heats API', async () => {
+    vi.mocked(api.heats.list).mockResolvedValue([heat])
+    vi.mocked(api.purchases.list).mockResolvedValue([])
+
+    render(<HeatsPage />)
+    await screen.findByText('H-1001')
+
+    const filterSection = screen
+      .getByRole('heading', { name: 'Find heats' })
+      .closest('section')
+    if (filterSection === null) {
+      throw new Error('Find heats section is missing')
+    }
+    const filters = within(filterSection)
+
+    fireEvent.change(filters.getByLabelText('From date'), {
+      target: { value: '2026-01-01' },
+    })
+    fireEvent.change(filters.getByLabelText('To date'), {
+      target: { value: '2026-12-31' },
+    })
+    fireEvent.change(filters.getByLabelText('Alloy'), {
+      target: { value: 'LM6' },
+    })
+    fireEvent.change(filters.getByLabelText('Report result'), {
+      target: { value: 'PASS' },
+    })
+    fireEvent.change(filters.getByLabelText('Heat number'), {
+      target: { value: 'H-1' },
+    })
+
+    await waitFor(() => {
+      expect(api.heats.list).toHaveBeenLastCalledWith({
+        from_date: '2026-01-01',
+        to_date: '2026-12-31',
+        alloy: 'LM6',
+        report_result: 'PASS',
+        heat_no: 'H-1',
+      })
+    })
   })
 })

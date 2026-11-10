@@ -107,10 +107,19 @@ export interface PurchaseLot extends PurchaseLotInput {
 
 export type Alloy = 'ADC12' | 'LM6'
 export type ItemType = 'ADC12' | 'LM6' | 'DROSS' | 'IRON_SCRAP'
+export type ReportResult = 'PENDING' | 'PASS' | 'FAIL'
 export type SaleTransportMode =
   | 'CUSTOMER_ARRANGES'
   | 'WE_PAY_ABSORB'
   | 'WE_PAY_BILL'
+
+export interface HeatFilters {
+  from_date?: string | undefined
+  to_date?: string | undefined
+  alloy?: Alloy | undefined
+  report_result?: ReportResult | undefined
+  heat_no?: string | undefined
+}
 
 interface HeatFields {
   heat_no: string
@@ -177,6 +186,17 @@ export interface Heat extends HeatFields {
   is_provisional: boolean
 }
 
+function heatQuery(filters: HeatFilters): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(filters)) {
+    if (typeof value === 'string' && value.trim() !== '') {
+      params.set(key, value.trim())
+    }
+  }
+  const query = params.toString()
+  return query === '' ? '' : `?${query}`
+}
+
 export const api = {
   health: (): Promise<HealthStatus> => request<HealthStatus>('/api/health'),
   purchases: {
@@ -200,7 +220,8 @@ export const api = {
       request<void>(`/api/purchases/${id}`, { method: 'DELETE' }),
   },
   heats: {
-    list: (): Promise<Heat[]> => request<Heat[]>('/api/heats'),
+    list: (filters: HeatFilters = {}): Promise<Heat[]> =>
+      request<Heat[]>(`/api/heats${heatQuery(filters)}`),
     get: (id: number): Promise<Heat> => request<Heat>(`/api/heats/${id}`),
     create: (input: HeatWrite): Promise<Heat> =>
       request<Heat>('/api/heats', {

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_session
+from app.models import Alloy, ReportResult
 from app.routers.sales import sale_to_read
 from app.schemas.heats import HeatInputRead, HeatRead, HeatWrite
 from app.services.heats import (
@@ -70,8 +72,22 @@ def _raise_rule_error(error: HeatRuleError) -> NoReturn:
 
 
 @router.get("", response_model=list[HeatRead])
-def list_heats(session: SessionDep) -> list[HeatRead]:
-    return [_to_read(view) for view in HeatService(session).list()]
+def list_heats(
+    session: SessionDep,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    alloy: Alloy | None = None,
+    report_result: ReportResult | None = None,
+    heat_no: str | None = None,
+) -> list[HeatRead]:
+    views = HeatService(session).list(
+        from_date=from_date,
+        to_date=to_date,
+        alloy=alloy,
+        report_result=report_result,
+        heat_no=heat_no,
+    )
+    return [_to_read(view) for view in views]
 
 
 @router.post(

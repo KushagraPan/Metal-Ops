@@ -156,7 +156,7 @@ Storing derived money would create a second source of truth that drifts after ev
 
 ### Heats API
 
-`GET/POST /api/heats` and `GET/PUT/DELETE /api/heats/{id}`. The payload references lots by `lot_id`; repeated lines for one lot are summed before the stock check. A heat may have zero inputs, in which case yield and profit are `null` and the screen shows `n/a`.
+`GET/POST /api/heats` and `GET/PUT/DELETE /api/heats/{id}`. The payload references lots by `lot_id`; repeated lines for one lot are summed before the stock check. A heat may have zero inputs, in which case yield and profit are `null` and the screen shows `n/a`. `GET /api/heats` accepts `from_date`, `to_date`, `alloy`, `report_result` and `heat_no`; supplied filters combine, `heat_no` is a case-insensitive substring search across all dates, and `report_result` matches heats with at least one report of that result. `GET /api/heats/{id}` returns the inputs, outputs, costs, linked sales, yield and profit shown on the detail screen.
 
 ### Sales API
 
@@ -253,8 +253,8 @@ Working-capital planning, multi-year projections, multiple workspaces or roles, 
 | `calc.py` and unit tests | #3 | Done |
 | Purchases API and screen | #4 | Done |
 | Heats API and screen | #5 | In review |
-| Sales API and screen | #6 | In review |
-| Heat history and detail | #7 | Not started |
+| Sales API and screen | #6 | Done |
+| Heat history and detail | #7 | In review |
 | Spectro reports and storage | #8 | Not started |
 | Expenses and dashboard figures | #9 | Not started |
 | Design system and charts | #10 | Not started |
