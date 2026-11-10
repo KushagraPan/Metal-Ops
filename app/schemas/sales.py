@@ -17,7 +17,11 @@ from app.models.enums import GstMode, ItemType, SaleTransportMode
 
 
 class SaleWrite(BaseModel):
-    """Payload for creating or replacing a sale."""
+    """Payload for creating or replacing a sale.
+
+    The `WE_PAY_BILL` billed-at-or-below-cost cap comes from issue #6's
+    acceptance criteria; product-spec R6 only defines net freight.
+    """
 
     model_config = ConfigDict(str_strip_whitespace=True)
 

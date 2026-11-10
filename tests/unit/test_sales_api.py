@@ -148,6 +148,10 @@ def test_create_alloy_sale_updates_heat_values(client: TestClient) -> None:
     lot = create_lot(client)
     heat = create_heat(client, lot_id=lot["id"])
 
+    before = client.get(f"/api/heats/{heat['id']}").json()
+    assert before["sold_alloy_kg"] == "0.00"
+    assert before["is_provisional"] is True
+
     response = client.post(
         "/api/sales", json=sale_payload(heat_id=heat["id"])
     )
@@ -189,13 +193,12 @@ def test_worked_example_profit_includes_linked_byproducts(
     lot = create_lot(client)
     heat = create_heat(client, lot_id=lot["id"])
 
-    assert (
-        client.post(
-            "/api/sales",
-            json=sale_payload(heat_id=heat["id"], weight_kg="890.00"),
-        ).status_code
-        == 201
+    alloy = client.post(
+        "/api/sales",
+        json=sale_payload(heat_id=heat["id"], weight_kg="890.00"),
     )
+    assert alloy.status_code == 201, alloy.text
+    alloy_sale_id = alloy.json()["id"]
     assert (
         client.post(
             "/api/sales",
@@ -237,6 +240,24 @@ def test_worked_example_profit_includes_linked_byproducts(
         "DROSS",
         "IRON_SCRAP",
     ]
+
+    billed = client.put(
+        f"/api/sales/{alloy_sale_id}",
+        json=sale_payload(
+            heat_id=heat["id"],
+            weight_kg="890.00",
+            transport_mode="WE_PAY_BILL",
+            transport_cost="3000.00",
+            transport_billed="2000.00",
+        ),
+    )
+    assert billed.status_code == 200, billed.text
+    assert billed.json()["net_outbound_transport"] == "1000.00"
+
+    after_billing = client.get(f"/api/heats/{heat['id']}").json()
+    assert after_billing["revenue"] == "219160.00"
+    assert after_billing["net_outbound_transport"] == "1000.00"
+    assert after_billing["heat_profit"] == "5160.00"
 
 
 def test_dross_and_iron_sales_may_be_unlinked(client: TestClient) -> None:
