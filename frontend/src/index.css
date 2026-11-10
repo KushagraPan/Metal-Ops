@@ -80,12 +80,49 @@
   }
 }
 
-/* Retain utility rules for legacy pages */
-.card-legacy {
-  background: var(--surface);
-  border: 1px solid var(--border-color);
+/* Page layouts & containers */
+.page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem 0;
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.muted {
+  color: hsl(var(--muted-foreground));
+  margin: 0.25rem 0 0;
+}
+
+/* Legacy Card styling for Purchases, Heats, and Sales */
+.card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
   padding: 1.25rem;
+  color: hsl(var(--card-foreground));
 }
 
 .table-wrap {
@@ -120,6 +157,7 @@ th {
   white-space: nowrap;
 }
 
+/* Form controls */
 .field {
   display: grid;
   gap: 0.35rem;
@@ -131,17 +169,77 @@ th {
 .field select,
 .field textarea {
   width: 100%;
-  min-height: 2.6rem;
   padding: 0.55rem 0.65rem;
   font-weight: 400;
-  color: inherit;
-  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 0.45rem;
 }
 
+.field input,
+.field select {
+  height: 2.6rem;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.field select {
+  cursor: pointer;
+}
+
+select option {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+
 .field input:disabled {
   opacity: 0.65;
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+/* Button styles for legacy forms */
+button {
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.45rem;
+  cursor: pointer;
+}
+
+button.primary {
+  color: #0f172a;
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+
+button.primary:hover {
+  background: #fbbf24;
+}
+
+button.danger {
+  color: #ffffff;
+  background: #e11d48;
+  border-color: #e11d48;
+}
+
+button.danger:hover {
+  background: #f43f5e;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .form-grid {
