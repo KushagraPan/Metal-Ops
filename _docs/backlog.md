@@ -161,14 +161,24 @@ Implement the design brief in `product-spec.md` section 6: Tailwind CSS + shadcn
 
 Acceptance criteria:
 - Layout matches the brief: sidebar (bottom tab bar on mobile), month selector in the top bar, four KPI cards, profit-per-heat chart, yield-per-heat chart with a planned-yield reference line, recent-heats table, GST estimate card.
-- All money uses Indian digit grouping (for example `₹1,53,093`) and tabular numerals.
-- Profit is green when positive and red when negative; PASS, FAIL and PENDING badges also carry a text label, never colour alone.
+- The four KPI cards are named explicitly from section 6:
+  1. Profit this month (with provisional label when applicable)
+  2. Revenue (monthly revenue)
+  3. Average yield with its difference from plan (compared against planned yield from settings)
+  4. Break-even progress ("X of Y heats", where X is monthly heats count and Y is break-even target; shows "n/a" when break-even is null)
+  The GST estimate card is placed in row 3 alongside recent heats as specified in the brief.
+- All money uses Indian digit grouping (`Intl.NumberFormat('en-IN')`): whole rupees on cards and charts (`maximumFractionDigits: 0`), two decimals in tables (`minimumFractionDigits: 2, maximumFractionDigits: 2`); negative values formatted as `-₹1,42,300` (minus before currency symbol); null shows `n/a`, never `₹0`. Tabular numerals via `font-variant-numeric: tabular-nums`.
+- Profit is green when positive and red when negative; PASS, FAIL and PENDING badges also carry a text label, never colour alone. Semantic green/red meet WCAG AA contrast in both light and dark themes.
+- Charts: heats with null profit or yield are omitted (not plotted as 0); provisional heats carry a mark that is not colour alone (e.g. pattern, marker symbol, or legend/tooltip indicator); each chart has a text alternative (aria-label or visible table); the planned-yield reference line comes from settings.
 - Charts and cards have loading skeletons, empty states and error states.
-- Works at 375 px width (phone) without horizontal scrolling.
-- Light and dark themes both work; the choice is remembered.
-- Lighthouse accessibility score is at least 90 on the dashboard at desktop and mobile sizes.
+- Responsive: the shell and dashboard work at 375 px with no horizontal page scroll; other screens need only scroll wide tables inside their own container.
+- Theme: defaults to the system setting (`prefers-color-scheme`), choice remembered in `localStorage`, no flash of the wrong theme on load.
+- Dependencies: pinned versions, `npm audit` at 0 vulnerabilities; report bundle size before and after changes.
+- Existing tests may change only to follow new markup, never to weaken checks.
+- Lighthouse accessibility score is at least 90 on the dashboard at desktop and mobile sizes, verified by QA if available, otherwise by the product owner in Chrome DevTools.
+- Optional if time allows: expense edit in the UI, row action alignment across tables.
 
-Tests: one frontend test for the empty state; one test for the money formatter (`153093` becomes `₹1,53,093`).
+Tests: one frontend test for the empty state; one test for the money formatter (`153093` becomes `₹1,53,093`); tests verifying chart text alternatives and whole-rupee card formatting.
 
 ## #11 [P1] Authentication
 Labels: backend, frontend, security · Depends on: #1
