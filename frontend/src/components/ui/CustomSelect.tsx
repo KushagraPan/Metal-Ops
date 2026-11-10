@@ -109,7 +109,7 @@ export function CustomSelect({
         ))}
       </select>
 
-      {/* 1. Trigger button: 10px rounded corners (rounded-xl), Orange focus border (border-amber-500), Custom chevron icon */}
+      {/* 1. Trigger button: h-10, rounded-lg, border-gray-200, focus:ring-amber-500, Custom chevron icon */}
       <button
         type="button"
         disabled={disabled}
@@ -117,10 +117,10 @@ export function CustomSelect({
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`flex h-[2.6rem] w-full items-center justify-between rounded-xl rounded-[10px] border bg-white px-3.5 text-sm text-slate-900 transition-colors dark:bg-slate-900 dark:text-slate-100 ${
+        className={`flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-slate-900 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 ${
           isOpen
             ? 'border-amber-500 ring-2 ring-amber-500/20'
-            : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
+            : 'hover:border-gray-300 dark:hover:border-slate-600'
         } focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60`}
       >
         <span className="truncate font-normal">
