@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import make_engine
 from app.models import Base, PurchaseLot, Setting, SpectroReport
 from app.seed import seed
+from app.storage import LocalStorage
 
 ROOT = Path(__file__).resolve().parents[2]
 SEED_PDF = ROOT / "seed_data" / "sample_spectro.pdf"
@@ -20,7 +21,7 @@ def fresh_session(tmp_path: Path) -> Session:
 
 def test_seed_creates_the_required_demo_data(tmp_path: Path) -> None:
     with fresh_session(tmp_path) as session:
-        counts = seed(session)
+        counts = seed(session, storage=LocalStorage(tmp_path / "storage"))
 
         assert counts["lots"] >= 3
         assert counts["heats"] >= 3
@@ -36,11 +37,13 @@ def test_seed_creates_the_required_demo_data(tmp_path: Path) -> None:
 
 def test_seed_is_idempotent(tmp_path: Path) -> None:
     with fresh_session(tmp_path) as session:
-        first = seed(session)
-        second = seed(session)
+        storage = LocalStorage(tmp_path / "storage")
+        first = seed(session, storage=storage)
+        second = seed(session, storage=storage)
 
         assert second == first
         assert first["settings"] == 1
+        assert len(list((tmp_path / "storage").iterdir())) == 1
 
 
 def test_seed_pdf_is_a_real_pdf_and_linked_to_the_report(tmp_path: Path) -> None:
@@ -48,18 +51,21 @@ def test_seed_pdf_is_a_real_pdf_and_linked_to_the_report(tmp_path: Path) -> None
     content = SEED_PDF.read_bytes()
     assert content.startswith(b"%PDF-")
 
+    storage = LocalStorage(tmp_path / "storage")
     with fresh_session(tmp_path) as session:
-        seed(session)
+        seed(session, storage=storage)
 
         report = session.scalars(select(SpectroReport)).one()
         assert report.original_filename == "sample-spectro.pdf"
-        assert report.file_key == "seed_data/sample_spectro.pdf"
+        assert report.file_key != "seed_data/sample_spectro.pdf"
         assert report.size_bytes == len(content)
+        with storage.open(report.file_key) as stored:
+            assert stored.read() == content
 
 
 def test_seed_never_consumes_more_than_a_lot_holds(tmp_path: Path) -> None:
     with fresh_session(tmp_path) as session:
-        seed(session)
+        seed(session, storage=LocalStorage(tmp_path / "storage"))
 
         for lot in session.scalars(select(PurchaseLot)):
             used = sum((entry.kg for entry in lot.inputs), Decimal("0"))

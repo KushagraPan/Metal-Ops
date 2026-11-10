@@ -13,6 +13,7 @@ from pydantic import (
 )
 
 from app.models.enums import Alloy
+from app.schemas.reports import ReportRead
 from app.schemas.sales import SaleRead
 
 
@@ -103,6 +104,7 @@ class HeatRead(BaseModel):
     other_cost: Decimal
     inputs: list[HeatInputRead]
     sales: list[SaleRead]
+    reports: list[ReportRead]
     total_input_kg: Decimal
     sold_alloy_kg: Decimal
     yield_pct: Decimal | None

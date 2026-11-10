@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.models import Alloy, ReportResult
+from app.routers.reports import report_to_read
 from app.routers.sales import sale_to_read
 from app.schemas.heats import HeatInputRead, HeatRead, HeatWrite
 from app.services.heats import (
@@ -52,6 +53,7 @@ def _to_read(view: HeatView) -> HeatRead:
             for item in view.inputs
         ],
         sales=[sale_to_read(sale) for sale in view.sales],
+        reports=[report_to_read(report) for report in view.reports],
         total_input_kg=view.total_input_kg,
         sold_alloy_kg=view.sold_alloy_kg,
         yield_pct=view.yield_pct,

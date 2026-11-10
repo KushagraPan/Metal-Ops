@@ -32,6 +32,7 @@ from app.models import (
     Setting,
     SpectroReport,
 )
+from app.storage import LocalStorage, Storage
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_PDF = ROOT / "seed_data" / "sample_spectro.pdf"
@@ -75,8 +76,11 @@ def _counts(session: Session) -> dict[str, int]:
     }
 
 
-def seed(session: Session) -> dict[str, int]:
+def seed(
+    session: Session, *, storage: Storage | None = None
+) -> dict[str, int]:
     """Insert the demo data set once and return row counts per table."""
+    storage = storage or LocalStorage()
     ensure_settings(session)
 
     if session.scalar(select(func.count()).select_from(PurchaseLot)):
@@ -237,13 +241,14 @@ def seed(session: Session) -> dict[str, int]:
     )
 
     pdf_bytes = SAMPLE_PDF.read_bytes()
+    stored = storage.save([pdf_bytes])
     session.add(
         SpectroReport(
             heat_id=heat_1.id,
-            sample_no=1,
-            file_key="seed_data/sample_spectro.pdf",
+            sample_no="S-001",
+            file_key=stored.key,
             original_filename="sample-spectro.pdf",
-            size_bytes=len(pdf_bytes),
+            size_bytes=stored.size_bytes,
             uploaded_at=datetime(2026, 10, 15, 9, 30, tzinfo=timezone.utc),
             grade_tested="ADC12",
             result=ReportResult.PASS,

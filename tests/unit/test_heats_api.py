@@ -718,7 +718,7 @@ def test_heat_filter_by_report_result_combines_with_alloy(
             [
                 SpectroReport(
                     heat_id=passed["id"],
-                    sample_no=1,
+                    sample_no="S-PASS",
                     file_key="test-pass.pdf",
                     original_filename="pass.pdf",
                     size_bytes=10,
@@ -726,7 +726,7 @@ def test_heat_filter_by_report_result_combines_with_alloy(
                 ),
                 SpectroReport(
                     heat_id=failed["id"],
-                    sample_no=1,
+                    sample_no="S-FAIL",
                     file_key="test-fail.pdf",
                     original_filename="fail.pdf",
                     size_bytes=10,

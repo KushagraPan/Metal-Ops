@@ -22,7 +22,14 @@ from app.calc import (
     total_sales_revenue,
     yield_pct,
 )
-from app.models import Alloy, Heat, HeatInput, PurchaseLot, ReportResult
+from app.models import (
+    Alloy,
+    Heat,
+    HeatInput,
+    PurchaseLot,
+    ReportResult,
+    SpectroReport,
+)
 from app.repositories.heats import HeatRepository
 from app.repositories.settings import SettingsRepository
 from app.schemas.heats import HeatInputPayload, HeatWrite
@@ -73,6 +80,7 @@ class HeatView:
     heat: Heat
     inputs: list[HeatInputView]
     sales: list[SaleView]
+    reports: list[SpectroReport]
     total_input_kg: Decimal
     sold_alloy_kg: Decimal
     yield_pct: Decimal | None
@@ -167,13 +175,17 @@ class HeatService:
                 raise HeatInUse(
                     "heat is referenced by one or more sales"
                 )
+            if heat.reports:
+                raise HeatInUse(
+                    "heat is referenced by one or more reports"
+                )
             self.heats.delete(heat)
             try:
                 self.session.commit()
             except IntegrityError as error:
                 self.session.rollback()
                 raise HeatInUse(
-                    "heat is referenced by one or more sales"
+                    "heat is referenced by sales or reports"
                 ) from error
         except Exception:
             self.session.rollback()
@@ -329,6 +341,7 @@ class HeatService:
             heat=heat,
             inputs=inputs,
             sales=sales,
+            reports=sorted(heat.reports, key=lambda row: row.id),
             total_input_kg=total,
             sold_alloy_kg=sold,
             yield_pct=yield_pct(heat.output_kg, total),

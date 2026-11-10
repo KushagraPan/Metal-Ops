@@ -58,6 +58,7 @@ class HeatRepository:
             .options(
                 selectinload(Heat.inputs).selectinload(HeatInput.lot),
                 selectinload(Heat.sales),
+                selectinload(Heat.reports),
             )
             .order_by(Heat.heat_date.desc(), Heat.id.desc())
         )
@@ -89,6 +90,7 @@ class HeatRepository:
             .options(
                 selectinload(Heat.inputs).selectinload(HeatInput.lot),
                 selectinload(Heat.sales),
+                selectinload(Heat.reports),
             )
             .where(Heat.id == heat_id)
         )
