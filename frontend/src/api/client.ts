@@ -136,6 +136,57 @@ export interface ReportUpdateInput {
   grade_tested?: string | null
 }
 
+export interface Expense {
+  id: number
+  month: string
+  category: string
+  amount: string
+}
+
+export interface ExpenseInput {
+  month: string
+  category: string
+  amount: string
+}
+
+export interface ExpenseUpdateInput {
+  category?: string
+  amount?: string
+}
+
+export interface GstEstimate {
+  collected: string
+  credit: string
+  net_payable_estimate: string
+}
+
+export interface DashboardHeatSummary {
+  id: number
+  heat_no: string
+  heat_date: string
+  alloy: Alloy
+  output_kg: string
+  yield_pct: string | null
+  heat_profit: string | null
+  is_provisional: boolean
+}
+
+export interface DashboardData {
+  month: string
+  revenue: string
+  profit: string
+  is_provisional: boolean
+  heats_count: number
+  average_yield_pct: string | null
+  planned_yield_pct: string
+  yield_diff_pct: string | null
+  break_even_heats: string | null
+  expenses_total: string
+  gst_estimate: GstEstimate
+  heats: DashboardHeatSummary[]
+  expenses: Expense[]
+}
+
 export type SaleTransportMode =
   | 'CUSTOMER_ARRANGES'
   | 'WE_PAY_ABSORB'
@@ -320,5 +371,33 @@ export const api = {
       }),
     remove: (id: number): Promise<void> =>
       request<void>(`/api/sales/${id}`, { method: 'DELETE' }),
+  },
+  expenses: {
+    list: (month?: string): Promise<Expense[]> => {
+      const query = month !== undefined && month !== '' ? `?month=${encodeURIComponent(month)}` : ''
+      return request<Expense[]>(`/api/expenses${query}`)
+    },
+    get: (id: number): Promise<Expense> =>
+      request<Expense>(`/api/expenses/${id}`),
+    create: (input: ExpenseInput): Promise<Expense> =>
+      request<Expense>('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    update: (id: number, input: ExpenseUpdateInput): Promise<Expense> =>
+      request<Expense>(`/api/expenses/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    remove: (id: number): Promise<void> =>
+      request<void>(`/api/expenses/${id}`, { method: 'DELETE' }),
+  },
+  dashboard: {
+    get: (month?: string): Promise<DashboardData> => {
+      const query = month !== undefined && month !== '' ? `?month=${encodeURIComponent(month)}` : ''
+      return request<DashboardData>(`/api/dashboard${query}`)
+    },
   },
 }

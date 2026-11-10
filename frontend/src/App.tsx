@@ -1,13 +1,14 @@
 import { useState } from 'react'
 
+import DashboardPage from './pages/DashboardPage'
 import HeatsPage from './pages/HeatsPage'
 import PurchasesPage from './pages/PurchasesPage'
 import SalesPage from './pages/SalesPage'
 
-type Page = 'purchases' | 'heats' | 'sales'
+type Page = 'dashboard' | 'purchases' | 'heats' | 'sales'
 
 export default function App() {
-  const [page, setPage] = useState<Page>('purchases')
+  const [page, setPage] = useState<Page>('dashboard')
 
   return (
     <main className="app-shell">
@@ -15,6 +16,13 @@ export default function App() {
         <p className="brand">MetalOps Lite</p>
         <p className="muted">Aluminium recycling workshop</p>
         <nav className="nav" aria-label="Sections">
+          <button
+            type="button"
+            className={page === 'dashboard' ? 'active' : undefined}
+            onClick={() => setPage('dashboard')}
+          >
+            Dashboard
+          </button>
           <button
             type="button"
             className={page === 'purchases' ? 'active' : undefined}
@@ -38,7 +46,9 @@ export default function App() {
           </button>
         </nav>
       </header>
-      {page === 'purchases' ? (
+      {page === 'dashboard' ? (
+        <DashboardPage />
+      ) : page === 'purchases' ? (
         <PurchasesPage />
       ) : page === 'heats' ? (
         <HeatsPage />
