@@ -173,6 +173,9 @@ export default function HeatsPage() {
                     </td>
                     <td className="numeric">
                       {formatOptionalMoney(heat.heat_profit)}
+                      {heat.is_provisional ? (
+                        <span className="pill">provisional</span>
+                      ) : null}
                     </td>
                     <td className="actions">
                       <button

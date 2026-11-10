@@ -106,6 +106,11 @@ export interface PurchaseLot extends PurchaseLotInput {
 }
 
 export type Alloy = 'ADC12' | 'LM6'
+export type ItemType = 'ADC12' | 'LM6' | 'DROSS' | 'IRON_SCRAP'
+export type SaleTransportMode =
+  | 'CUSTOMER_ARRANGES'
+  | 'WE_PAY_ABSORB'
+  | 'WE_PAY_BILL'
 
 interface HeatFields {
   heat_no: string
@@ -137,14 +142,39 @@ export interface HeatWrite extends HeatFields {
   inputs: HeatInputPayload[]
 }
 
+export interface SaleWrite {
+  sale_date: string
+  customer: string
+  item_type: ItemType
+  heat_id: number | null
+  weight_kg: string
+  rate_per_kg: string
+  gst_mode: GstMode
+  transport_mode: SaleTransportMode
+  transport_cost: string
+  transport_billed: string
+}
+
+export interface Sale extends SaleWrite {
+  id: number
+  gst_amount: string
+  revenue: string
+  net_outbound_transport: string
+}
+
 export interface Heat extends HeatFields {
   id: number
   inputs: HeatInputRead[]
+  sales: Sale[]
   total_input_kg: string
+  sold_alloy_kg: string
   yield_pct: string | null
   scrap_cost: string
   variable_costs: string
+  revenue: string
+  net_outbound_transport: string
   heat_profit: string | null
+  is_provisional: boolean
 }
 
 export const api = {
@@ -186,5 +216,23 @@ export const api = {
       }),
     remove: (id: number): Promise<void> =>
       request<void>(`/api/heats/${id}`, { method: 'DELETE' }),
+  },
+  sales: {
+    list: (): Promise<Sale[]> => request<Sale[]>('/api/sales'),
+    get: (id: number): Promise<Sale> => request<Sale>(`/api/sales/${id}`),
+    create: (input: SaleWrite): Promise<Sale> =>
+      request<Sale>('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    update: (id: number, input: SaleWrite): Promise<Sale> =>
+      request<Sale>(`/api/sales/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    remove: (id: number): Promise<void> =>
+      request<void>(`/api/sales/${id}`, { method: 'DELETE' }),
   },
 }

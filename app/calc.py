@@ -27,6 +27,8 @@ SALE_CUSTOMER_ARRANGES = "CUSTOMER_ARRANGES"
 SALE_WE_PAY_ABSORB = "WE_PAY_ABSORB"
 SALE_WE_PAY_BILL = "WE_PAY_BILL"
 
+ALLOY_ITEM_TYPES = ("ADC12", "LM6")
+
 
 def _number(value: Decimal | int | str, field: str) -> Decimal:
     """Coerce a numeric value, rejecting `float` to keep money exact."""
@@ -201,6 +203,62 @@ def net_outbound_transport(
     raise ValueError(f"unknown sale transport mode: {transport_mode!r}")
 
 
+def sale_revenue(
+    weight_kg: Decimal | int | str,
+    rate_per_kg: Decimal | int | str,
+) -> Decimal:
+    """R7: ex-GST revenue for one sale."""
+    return _money(
+        _number(weight_kg, "weight_kg") * _number(rate_per_kg, "rate_per_kg")
+    )
+
+
+def total_sales_revenue(
+    sales: Iterable[tuple[Decimal | int | str, Decimal | int | str]],
+) -> Decimal:
+    """R7: ex-GST revenue for a set of `(weight_kg, rate_per_kg)` sales."""
+    total = sum(
+        (
+            _number(weight_kg, "weight_kg")
+            * _number(rate_per_kg, "rate_per_kg")
+            for weight_kg, rate_per_kg in sales
+        ),
+        Decimal("0"),
+    )
+    return _money(total)
+
+
+def total_net_outbound_transport(
+    sales: Iterable[
+        tuple[str, Decimal | int | str, Decimal | int | str]
+    ],
+) -> Decimal:
+    """R6/R7: sum of net outbound transport across sales."""
+    total = sum(
+        (
+            net_outbound_transport(mode, cost, billed)
+            for mode, cost, billed in sales
+        ),
+        Decimal("0"),
+    )
+    return _money(total)
+
+
+def sold_alloy_kg(
+    sales: Iterable[tuple[Decimal | int | str, object]],
+) -> Decimal:
+    """R8/R9: kilograms of alloy sold, excluding byproduct sales."""
+    total = sum(
+        (
+            _number(weight_kg, "weight_kg")
+            for weight_kg, item_type in sales
+            if _mode(item_type) in ALLOY_ITEM_TYPES
+        ),
+        Decimal("0"),
+    )
+    return _weight(total)
+
+
 def heat_profit(
     revenue: Decimal | int | str,
     scrap_cost: Decimal | int | str,
@@ -224,6 +282,11 @@ def is_provisional(
     return _number(sold_alloy_kg, "sold_alloy_kg") < _number(
         output_kg, "output_kg"
     )
+
+
+def monthly_is_provisional(flags: Iterable[bool]) -> bool:
+    """R8/R10: a month is provisional while any included heat is."""
+    return any(flags)
 
 
 def monthly_profit(

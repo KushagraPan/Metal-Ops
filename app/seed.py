@@ -218,8 +218,8 @@ def seed(session: Session) -> dict[str, int]:
                 rate_per_kg=Decimal("35.00"),
                 gst_mode=GstMode.WITH,
                 transport_mode=SaleTransportMode.WE_PAY_BILL,
-                transport_cost=Decimal("500.00"),
-                transport_billed=Decimal("700.00"),
+                transport_cost=Decimal("700.00"),
+                transport_billed=Decimal("500.00"),
             ),
             Sale(
                 sale_date=date(2026, 10, 27),

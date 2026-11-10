@@ -31,11 +31,16 @@ const emptyHeat: Heat = {
   labour_cost: '0.00',
   other_cost: '0.00',
   inputs: [],
+  sales: [],
   total_input_kg: '0.00',
+  sold_alloy_kg: '0.00',
   yield_pct: null,
   scrap_cost: '0.00',
   variable_costs: '0.00',
+  revenue: '0.00',
+  net_outbound_transport: '0.00',
   heat_profit: null,
+  is_provisional: true,
 }
 
 const lot: PurchaseLot = {

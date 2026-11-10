@@ -13,14 +13,22 @@ from app.calc import (
     heat_profit,
     heat_scrap_cost,
     heat_variable_costs,
+    is_provisional,
     landed_cost_per_kg,
     remaining_kg,
+    sold_alloy_kg,
     total_input_kg,
+    total_net_outbound_transport,
+    total_sales_revenue,
     yield_pct,
 )
 from app.models import Heat, HeatInput, PurchaseLot
 from app.repositories.heats import HeatRepository
+from app.repositories.settings import SettingsRepository
 from app.schemas.heats import HeatInputPayload, HeatWrite
+from app.services.sales import SaleView, build_sale_view
+
+DEFAULT_GST_RATE = Decimal("0.18")
 
 
 class HeatError(Exception):
@@ -64,17 +72,23 @@ class HeatInputView:
 class HeatView:
     heat: Heat
     inputs: list[HeatInputView]
+    sales: list[SaleView]
     total_input_kg: Decimal
+    sold_alloy_kg: Decimal
     yield_pct: Decimal | None
     scrap_cost: Decimal
     variable_costs: Decimal
+    revenue: Decimal
+    net_outbound_transport: Decimal
     heat_profit: Decimal | None
+    is_provisional: bool
 
 
 class HeatService:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.heats = HeatRepository(session)
+        self.settings = SettingsRepository(session)
 
     def list(self) -> list[HeatView]:
         return [self._view(heat) for heat in self.heats.list()]
@@ -110,6 +124,13 @@ class HeatService:
             self._validate_stock(
                 items, data.output_kg, exclude_heat_id=heat_id
             )
+            sold = sold_alloy_kg(
+                (sale.weight_kg, sale.item_type) for sale in heat.sales
+            )
+            if data.output_kg < sold:
+                raise HeatValidationError(
+                    "output_kg cannot be below the alloy kg already sold"
+                )
             for field, value in data.model_dump(
                 exclude={"inputs"}
             ).items():
@@ -125,6 +146,10 @@ class HeatService:
         try:
             self.heats.begin_write()
             heat = self._get_or_raise(heat_id, for_update=True)
+            if heat.sales:
+                raise HeatInUse(
+                    "heat is referenced by one or more sales"
+                )
             self.heats.delete(heat)
             try:
                 self.session.commit()
@@ -241,6 +266,29 @@ class HeatService:
                 )
             )
 
+        gst_rate = self._gst_rate()
+        sales = [
+            build_sale_view(sale, gst_rate)
+            for sale in sorted(
+                heat.sales, key=lambda row: (row.sale_date, row.id)
+            )
+        ]
+        sold = sold_alloy_kg(
+            (view.sale.weight_kg, view.sale.item_type) for view in sales
+        )
+        revenue = total_sales_revenue(
+            (view.sale.weight_kg, view.sale.rate_per_kg)
+            for view in sales
+        )
+        net_transport = total_net_outbound_transport(
+            (
+                view.sale.transport_mode,
+                view.sale.transport_cost,
+                view.sale.transport_billed,
+            )
+            for view in sales
+        )
+
         total = total_input_kg([item.kg for item in heat.inputs])
         scrap = heat_scrap_cost(scrap_pairs)
         variable = heat_variable_costs(
@@ -249,14 +297,12 @@ class HeatService:
             labour_cost=heat.labour_cost,
             other_cost=heat.other_cost,
         )
-        # Sales arrive in #6; until then a heat has no revenue, so a heat
-        # with inputs correctly shows a cost-only profit.
         profit = (
             heat_profit(
-                revenue=Decimal("0.00"),
+                revenue=revenue,
                 scrap_cost=scrap,
                 variable_costs=variable,
-                net_transport=Decimal("0.00"),
+                net_transport=net_transport,
             )
             if total > 0
             else None
@@ -265,12 +311,21 @@ class HeatService:
         return HeatView(
             heat=heat,
             inputs=inputs,
+            sales=sales,
             total_input_kg=total,
+            sold_alloy_kg=sold,
             yield_pct=yield_pct(heat.output_kg, total),
             scrap_cost=scrap,
             variable_costs=variable,
+            revenue=revenue,
+            net_outbound_transport=net_transport,
             heat_profit=profit,
+            is_provisional=is_provisional(sold, heat.output_kg),
         )
+
+    def _gst_rate(self) -> Decimal:
+        setting = self.settings.get()
+        return setting.gst_rate if setting is not None else DEFAULT_GST_RATE
 
     def _commit_heat_write(self) -> None:
         try:

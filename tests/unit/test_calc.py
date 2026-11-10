@@ -16,10 +16,15 @@ from app.calc import (
     heat_variable_costs,
     is_provisional,
     landed_cost_per_kg,
+    monthly_is_provisional,
     monthly_profit,
     net_outbound_transport,
     remaining_kg,
+    sale_revenue,
+    sold_alloy_kg,
     total_input_kg,
+    total_net_outbound_transport,
+    total_sales_revenue,
     yield_pct,
 )
 
@@ -192,6 +197,28 @@ def test_is_provisional(
     sold: Decimal, output: Decimal, expected: bool
 ) -> None:
     assert is_provisional(sold, output) is expected
+
+
+def test_sale_revenue_and_totals() -> None:
+    sales = [(D("890"), D("240")), (D("60"), D("90")), (D("5"), D("32"))]
+
+    assert sale_revenue(D("890"), D("240")) == D("213600.00")
+    assert total_sales_revenue(sales) == D("219160.00")
+    assert sold_alloy_kg(
+        [(D("890"), "ADC12"), (D("60"), "DROSS"), (D("5"), "IRON_SCRAP")]
+    ) == D("890.00")
+    assert total_net_outbound_transport(
+        [
+            ("WE_PAY_ABSORB", D("3000"), D("0")),
+            ("CUSTOMER_ARRANGES", D("0"), D("0")),
+        ]
+    ) == D("3000.00")
+
+
+def test_monthly_is_provisional_when_any_heat_is_provisional() -> None:
+    assert monthly_is_provisional([False, True]) is True
+    assert monthly_is_provisional([False, False]) is False
+    assert monthly_is_provisional([]) is False
 
 
 def test_monthly_profit_sums_heats_sales_and_expenses() -> None:

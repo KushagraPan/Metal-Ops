@@ -2,8 +2,9 @@ import { useState } from 'react'
 
 import HeatsPage from './pages/HeatsPage'
 import PurchasesPage from './pages/PurchasesPage'
+import SalesPage from './pages/SalesPage'
 
-type Page = 'purchases' | 'heats'
+type Page = 'purchases' | 'heats' | 'sales'
 
 export default function App() {
   const [page, setPage] = useState<Page>('purchases')
@@ -28,9 +29,22 @@ export default function App() {
           >
             Heats
           </button>
+          <button
+            type="button"
+            className={page === 'sales' ? 'active' : undefined}
+            onClick={() => setPage('sales')}
+          >
+            Sales
+          </button>
         </nav>
       </header>
-      {page === 'purchases' ? <PurchasesPage /> : <HeatsPage />}
+      {page === 'purchases' ? (
+        <PurchasesPage />
+      ) : page === 'heats' ? (
+        <HeatsPage />
+      ) : (
+        <SalesPage />
+      )}
     </main>
   )
 }

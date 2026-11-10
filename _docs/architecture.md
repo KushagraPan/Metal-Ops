@@ -141,6 +141,7 @@ Derived, never stored as the source of truth:
 | `net_outbound_transport` | R6 | `calc.net_outbound_transport` |
 | `heat_profit` | R7 | `calc.heat_profit` |
 | provisional flag | R8 | `calc.is_provisional` |
+| monthly provisional flag | R8/R10 | `calc.monthly_is_provisional` |
 | monthly profit | R10 | `calc.monthly_profit` |
 | break-even heats | R11 | `calc.break_even_heats` |
 | GST estimate | R12 | `calc.gst_summary` |
@@ -156,6 +157,14 @@ Storing derived money would create a second source of truth that drifts after ev
 ### Heats API
 
 `GET/POST /api/heats` and `GET/PUT/DELETE /api/heats/{id}`. The payload references lots by `lot_id`; repeated lines for one lot are summed before the stock check. A heat may have zero inputs, in which case yield and profit are `null` and the screen shows `n/a`.
+
+### Sales API
+
+`GET/POST /api/sales` and `GET/PUT/DELETE /api/sales/{id}`. `ADC12`/`LM6` sales are bound to a heat of the same alloy and cannot push that heat's total alloy kg sold past `output_kg`. `DROSS`/`IRON_SCRAP` may be unlinked or linked for revenue. `WE_PAY_BILL` requires `transport_billed <= transport_cost`, `WE_PAY_ABSORB` resets the billed amount, and `CUSTOMER_ARRANGES` forces both transport amounts to zero. GST mode changes the sale's own `gst_amount`, never revenue or profit. A heat response exposes `sold_alloy_kg`, `revenue`, `net_outbound_transport`, linked sales and `is_provisional`, so the UI does not infer state. Deleting a heat with linked sales is refused with **409**, and neither the heat nor its inputs nor its sales change. A heat's `output_kg` may not be reduced below the alloy kg already sold.
+
+### Provisional labelling
+
+`calc.is_provisional` compares the sold alloy kg to a heat's output. While short, a heat is provisional and the heat list/detail shows `provisional` next to its profit. `calc.monthly_is_provisional` propagates that state to any month whose included heats contain even one provisional heat, for the dashboard to use later (issue #9).
 
 ### Create a heat (R4)
 
@@ -244,7 +253,7 @@ Working-capital planning, multi-year projections, multiple workspaces or roles, 
 | `calc.py` and unit tests | #3 | Done |
 | Purchases API and screen | #4 | Done |
 | Heats API and screen | #5 | In review |
-| Sales API and screen | #6 | Not started |
+| Sales API and screen | #6 | In review |
 | Heat history and detail | #7 | Not started |
 | Spectro reports and storage | #8 | Not started |
 | Expenses and dashboard figures | #9 | Not started |

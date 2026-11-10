@@ -39,7 +39,10 @@ class HeatRepository:
     def list(self) -> list[Heat]:
         statement = (
             select(Heat)
-            .options(selectinload(Heat.inputs).selectinload(HeatInput.lot))
+            .options(
+                selectinload(Heat.inputs).selectinload(HeatInput.lot),
+                selectinload(Heat.sales),
+            )
             .order_by(Heat.heat_date.desc(), Heat.id.desc())
         )
         return list(self.session.scalars(statement).unique())
@@ -47,7 +50,10 @@ class HeatRepository:
     def get(self, heat_id: int, *, for_update: bool = False) -> Heat | None:
         statement = (
             select(Heat)
-            .options(selectinload(Heat.inputs).selectinload(HeatInput.lot))
+            .options(
+                selectinload(Heat.inputs).selectinload(HeatInput.lot),
+                selectinload(Heat.sales),
+            )
             .where(Heat.id == heat_id)
         )
         if for_update and self._dialect() != "sqlite":

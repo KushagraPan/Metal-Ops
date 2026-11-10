@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_session
+from app.routers.sales import sale_to_read
 from app.schemas.heats import HeatInputRead, HeatRead, HeatWrite
 from app.services.heats import (
     HeatInUse,
@@ -48,11 +49,16 @@ def _to_read(view: HeatView) -> HeatRead:
             )
             for item in view.inputs
         ],
+        sales=[sale_to_read(sale) for sale in view.sales],
         total_input_kg=view.total_input_kg,
+        sold_alloy_kg=view.sold_alloy_kg,
         yield_pct=view.yield_pct,
         scrap_cost=view.scrap_cost,
         variable_costs=view.variable_costs,
+        revenue=view.revenue,
+        net_outbound_transport=view.net_outbound_transport,
         heat_profit=view.heat_profit,
+        is_provisional=view.is_provisional,
     )
 
 
