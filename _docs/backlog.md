@@ -92,6 +92,7 @@ Acceptance criteria:
 - `ADC12`/`LM6` sales require a heat of the same alloy; `DROSS`/`IRON_SCRAP` may be unlinked.
 - Total alloy kg sold for a heat cannot exceed its `output_kg`, otherwise 422 (R9).
 - `WE_PAY_BILL` requires `transport_billed` not greater than `transport_cost`; `CUSTOMER_ARRANGES` forces both to 0.
+- `WE_PAY_ABSORB` and `WE_PAY_BILL` require `transport_cost > 0`; zero, negative or omitted returns 422. `WE_PAY_BILL` allows `transport_billed` from 0 up to the cost.
 - Profit on the heat detail updates after a sale is added.
 - Changing GST mode on a linked sale never changes heat profit; the R2/R7 invariance is re-tested with sales in both GST modes.
 - A heat whose sold alloy kg is below `output_kg` is provisional (R8). The heat list/detail labels its profit "provisional"; a fully sold heat is not provisional. The heat response exposes `sold_alloy_kg` and `is_provisional` so the UI does not infer it.
