@@ -169,7 +169,7 @@ th {
 .field select,
 .field textarea {
   width: 100%;
-  padding: 0.55rem 0.65rem;
+  padding: 0 0.65rem;
   font-weight: 400;
   color: hsl(var(--foreground));
   background: hsl(var(--card));
@@ -180,26 +180,38 @@ th {
 .field input,
 .field select {
   height: 2.6rem;
-  padding-top: 0;
-  padding-bottom: 0;
+  line-height: 2.6rem;
+}
+
+.field textarea {
+  min-height: 4.5rem;
+  padding: 0.55rem 0.65rem;
+  line-height: 1.4;
 }
 
 .field select {
   cursor: pointer;
+  appearance: auto;
 }
 
-select option {
-  background-color: hsl(var(--card));
-  color: hsl(var(--foreground));
+.dark select,
+.dark input,
+.dark textarea {
+  color-scheme: dark;
 }
 
 .field input:disabled {
   opacity: 0.65;
 }
 
-.field input:focus-visible,
-.field select:focus-visible,
-.field textarea:focus-visible,
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 1px #f59e0b;
+}
+
 button:focus-visible {
   outline: 2px solid #f59e0b;
   outline-offset: 2px;
