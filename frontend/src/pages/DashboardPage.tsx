@@ -3,8 +3,8 @@ import type { FormEvent } from 'react'
 import {
   AlertCircle,
   Calendar,
-  DollarSign,
   Flame,
+  IndianRupee,
   Percent,
   Plus,
   RefreshCw,
@@ -250,7 +250,7 @@ export default function DashboardPage({
                 <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
                   Revenue
                 </CardTitle>
-                <DollarSign className="h-4 w-4 text-amber-500" />
+                <IndianRupee className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
