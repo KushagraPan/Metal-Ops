@@ -13,7 +13,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -32,7 +31,7 @@ class SpectroReport(Base):
     heat_id: Mapped[int] = mapped_column(
         ForeignKey("heats.id", ondelete="CASCADE"), index=True, nullable=False
     )
-    sample_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    sample_no: Mapped[str] = mapped_column(String(50), nullable=False)
     file_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -51,7 +50,5 @@ class SpectroReport(Base):
     heat: Mapped[Heat] = relationship(back_populates="reports")
 
     __table_args__ = (
-        UniqueConstraint("heat_id", "sample_no", name="sample_no_per_heat"),
         CheckConstraint("size_bytes >= 0", name="size_non_negative"),
-        CheckConstraint("sample_no > 0", name="sample_no_positive"),
     )
