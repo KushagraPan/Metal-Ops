@@ -238,6 +238,7 @@ One small VM per environment with Docker Compose is chosen over a PaaS because u
 | One workspace, one role | Stated v1 scope; multi-tenancy would touch every table |
 | Estimate, not filing, for GST | The system is not a tax authority and must not imply compliance |
 | OpenTelemetry + Collector | Vendor-neutral; Grafana reads metrics, logs and traces with one trace ID |
+| Break-even under provisional heats | Break-even (R11) requires positive average heat profit. When heats are provisional, profit is unfinalized and often negative, so `calc.break_even_heats` suppresses misleading figures by returning `None` (`n/a`) until the workshop breaks even or finalizes sales |
 
 ## 9. Deliberately out of scope
 

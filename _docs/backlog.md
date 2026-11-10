@@ -6,7 +6,7 @@ Rules for agents (also in `AGENTS.md`): one issue at a time, tests first, `make 
 
 **Cut line if time is short:** drop dark mode in #10, the optional element values in #8, and keep #9 minimal. Keep the #10 layout and charts, since the dashboard is the part you will show to clients. Do not load real data until #11 is done.
 
-**Suggested order:** 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, 19, then 9, 10, 11, 20.
+**Suggested order:** 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17, 18, 19, then 9, 10, 11, 20, 21, 22.
 
 ---
 
@@ -290,3 +290,29 @@ Acceptance criteria:
 - No new migration is required.
 
 Tests: API with settings present and missing, asserting `gst_rate` and `gst_rate_source`; UI test for the fallback warning; existing purchase calculations and tests remain green.
+
+## #21 [P1] Edit monthly fixed expenses in the UI
+Labels: frontend · Depends on: #9
+
+Follow-up to #9: While the monthly expenses backend supports full CRUD (`PUT /api/expenses/{id}`), the UI in #9 only supports adding and deleting expenses. Users need the ability to edit existing expense records directly from the dashboard or expenses screen.
+
+Acceptance criteria:
+- Each row in the monthly fixed expenses table has an "Edit" button.
+- Clicking "Edit" allows updating category and amount inline or via an edit mode, with pre-filled current values.
+- Saving updates the expense via `PUT /api/expenses/{id}` and reloads the dashboard figures.
+- Validation prevents blank category or negative amount.
+- Cancel button discards pending edits without saving.
+
+Tests: UI test for editing an existing expense amount and verifying the updated figure.
+
+## #22 [P1] Clarify break-even heats with provisional data
+Labels: backend, frontend · Depends on: #9
+
+Follow-up to #9: When heats in a month are provisional (alloy kg sold < output kg), heat profits are incomplete and often negative. Computing break-even from provisional heats can yield misleading or volatile targets. The current implementation returns `n/a` when average heat profit is zero or negative.
+
+Acceptance criteria:
+- When average heat profit is positive but the month has provisional heats, break-even is computed and accompanied by a visible "provisional" tag or note indicating that the target is based on partially sold heats.
+- When average heat profit is zero or negative, break-even remains `n/a` as specified in R11.
+- The dashboard KPI card for break-even displays the provisional indicator whenever `is_provisional` is true and a numeric break-even value is shown.
+
+Tests: Unit and UI tests verifying the provisional indicator on break-even when a month is provisional with positive average profit.
