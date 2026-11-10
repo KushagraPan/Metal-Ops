@@ -313,211 +313,312 @@ export default function SaleForm({
     heats.find((heat) => String(heat.id) === form.heat_id) ?? null
 
   return (
-    <section className="card">
-      <h2>{initial === null ? 'New sale' : `Edit sale #${initial.id}`}</h2>
-      <form className="sale-form" onSubmit={handleSubmit} noValidate>
-        <div className="form-grid">
-          <label className="field">
-            <span>Sale date</span>
-            <input
-              type="date"
-              value={form.sale_date}
-              onChange={(event) =>
-                setField('sale_date', event.target.value)
-              }
-              required
-            />
-          </label>
+    <section className="app-card">
+      <div className="border-b border-slate-200 pb-3 mb-6 dark:border-slate-800">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          {initial === null ? 'New sale' : `Edit sale #${initial.id}`}
+        </h2>
+      </div>
 
-          <label className="field">
-            <span>Customer</span>
-            <input
-              type="text"
-              value={form.customer}
-              maxLength={200}
-              onChange={(event) =>
-                setField('customer', event.target.value)
-              }
-              required
-            />
-          </label>
+      <form className="space-y-6" onSubmit={handleSubmit} noValidate>
+        {/* Section 1: Sale & Material */}
+        <div className="space-y-4">
+          <div className="border-b border-slate-100 pb-2 dark:border-slate-800">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Sale & Material
+            </h3>
+          </div>
 
-          <label className="field">
-            <span>Item type</span>
-            <select
-              value={form.item_type}
-              onChange={(event) =>
-                changeItemType(event.target.value as ItemType)
-              }
-            >
-              <option value="ADC12">ADC12</option>
-              <option value="LM6">LM6</option>
-              <option value="DROSS">Dross</option>
-              <option value="IRON_SCRAP">Iron scrap</option>
-            </select>
-          </label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Field 1: Sale date */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-date" className="app-label">
+                Sale date
+              </label>
+              <input
+                id="sale-date"
+                type="date"
+                value={form.sale_date}
+                onChange={(event) =>
+                  setField('sale_date', event.target.value)
+                }
+                required
+                className="app-input"
+              />
+            </div>
 
-          <label className="field">
-            <span>Heat</span>
-            <select
-              value={form.heat_id}
-              onChange={(event) => setField('heat_id', event.target.value)}
-            >
-              {!isAlloyType(form.item_type) ? (
-                <option value="">Unlinked byproduct sale</option>
-              ) : null}
-              {matchingHeats.map((heat) => (
-                <option key={heat.id} value={String(heat.id)}>
-                  {heat.heat_no} · {heat.alloy} ·{' '}
-                  {formatKg(
-                    String(availableFor(heat, initial, form.item_type)),
-                  )}{' '}
-                  kg sellable
-                </option>
-              ))}
-            </select>
-          </label>
+            {/* Field 2: Customer */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-customer" className="app-label">
+                Customer
+              </label>
+              <input
+                id="sale-customer"
+                type="text"
+                value={form.customer}
+                maxLength={200}
+                placeholder="Customer name"
+                onChange={(event) =>
+                  setField('customer', event.target.value)
+                }
+                required
+                className="app-input"
+              />
+            </div>
 
-          <label className="field">
-            <span>Weight (kg)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              value={form.weight_kg}
-              onChange={(event) =>
-                setField('weight_kg', event.target.value)
-              }
-              required
-            />
-          </label>
+            {/* Field 3: Item type */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-item-type" className="app-label">
+                Item type
+              </label>
+              <select
+                id="sale-item-type"
+                value={form.item_type}
+                onChange={(event) =>
+                  changeItemType(event.target.value as ItemType)
+                }
+                className="app-input cursor-pointer"
+              >
+                <option value="ADC12">ADC12</option>
+                <option value="LM6">LM6</option>
+                <option value="DROSS">Dross</option>
+                <option value="IRON_SCRAP">Iron scrap</option>
+              </select>
+            </div>
 
-          <label className="field">
-            <span>Rate (₹/kg)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              value={form.rate_per_kg}
-              onChange={(event) =>
-                setField('rate_per_kg', event.target.value)
-              }
-              required
-            />
-          </label>
+            {/* Field 4: Heat */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-heat" className="app-label">
+                Heat
+              </label>
+              <select
+                id="sale-heat"
+                value={form.heat_id}
+                onChange={(event) => setField('heat_id', event.target.value)}
+                className="app-input cursor-pointer"
+              >
+                {!isAlloyType(form.item_type) ? (
+                  <option value="">Unlinked byproduct sale</option>
+                ) : null}
+                {matchingHeats.map((heat) => (
+                  <option key={heat.id} value={String(heat.id)}>
+                    {heat.heat_no} · {heat.alloy} ·{' '}
+                    {formatKg(
+                      String(availableFor(heat, initial, form.item_type)),
+                    )}{' '}
+                    kg sellable
+                  </option>
+                ))}
+              </select>
 
-          <label className="field">
-            <span>GST mode</span>
-            <select
-              value={form.gst_mode}
-              onChange={(event) =>
-                setField('gst_mode', event.target.value as GstMode)
-              }
-            >
-              <option value="WITH">With GST</option>
-              <option value="WITHOUT">Without GST</option>
-            </select>
-          </label>
+              {/* 2. Inventory Helper Callout */}
+              {selectedHeat !== null && isAlloyType(form.item_type) && (
+                <div className="mt-2">
+                  <span className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1 inline-flex items-center gap-1.5 dark:bg-amber-950/40 dark:border-amber-900/50 dark:text-amber-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                    <span>
+                      {formatKg(
+                        String(availableFor(selectedHeat, initial, form.item_type)),
+                      )}{' '}
+                      kg of {selectedHeat.alloy} remain unsold on{' '}
+                      {selectedHeat.heat_no}.
+                    </span>
+                  </span>
+                </div>
+              )}
 
-          <label className="field">
-            <span>Transport mode</span>
-            <select
-              value={form.transport_mode}
-              onChange={(event) =>
-                changeTransportMode(
-                  event.target.value as SaleTransportMode,
-                )
-              }
-            >
-              <option value="CUSTOMER_ARRANGES">Customer arranges</option>
-              <option value="WE_PAY_ABSORB">We pay and absorb</option>
-              <option value="WE_PAY_BILL">We pay and bill</option>
-            </select>
-          </label>
+              {isAlloyType(form.item_type) && matchingHeats.length === 0 && (
+                <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                  Add a {form.item_type} heat before selling this alloy.
+                </p>
+              )}
+            </div>
 
-          <label className="field">
-            <span>Transport cost</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min={customerArranges ? '0' : '0.01'}
-              step="0.01"
-              value={customerArranges ? '0.00' : form.transport_cost}
-              onChange={(event) =>
-                setField('transport_cost', event.target.value)
-              }
-              disabled={customerArranges}
-            />
-          </label>
+            {/* Field 5: Weight (kg) */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-weight" className="app-label">
+                Weight (kg)
+              </label>
+              <input
+                id="sale-weight"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                value={form.weight_kg}
+                onChange={(event) =>
+                  setField('weight_kg', event.target.value)
+                }
+                required
+                className="app-input"
+              />
+            </div>
 
-          <label className="field">
-            <span>Transport billed</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              value={billsTransport ? form.transport_billed : '0.00'}
-              onChange={(event) =>
-                setField('transport_billed', event.target.value)
-              }
-              disabled={!billsTransport}
-            />
-          </label>
+            {/* Field 6: Rate (₹/kg) */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-rate" className="app-label">
+                Rate (₹/kg)
+              </label>
+              <input
+                id="sale-rate"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                value={form.rate_per_kg}
+                onChange={(event) =>
+                  setField('rate_per_kg', event.target.value)
+                }
+                required
+                className="app-input"
+              />
+            </div>
+          </div>
         </div>
 
-        {isAlloyType(form.item_type) && matchingHeats.length === 0 ? (
-          <p className="muted">
-            Add a {form.item_type} heat before selling this alloy.
-          </p>
-        ) : null}
+        {/* Section 2: Logistics & Billing */}
+        <div className="space-y-4">
+          <div className="border-b border-slate-100 pb-2 dark:border-slate-800">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Logistics & Billing
+            </h3>
+          </div>
 
-        {selectedHeat !== null && isAlloyType(form.item_type) ? (
-          <p className="muted">
-            {formatKg(
-              String(availableFor(selectedHeat, initial, form.item_type)),
-            )}{' '}
-            kg of {selectedHeat.alloy} remain unsold on{' '}
-            {selectedHeat.heat_no}.
-          </p>
-        ) : null}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Field 7: GST mode */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-gst-mode" className="app-label">
+                GST mode
+              </label>
+              <select
+                id="sale-gst-mode"
+                value={form.gst_mode}
+                onChange={(event) =>
+                  setField('gst_mode', event.target.value as GstMode)
+                }
+                className="app-input cursor-pointer"
+              >
+                <option value="WITH">With GST</option>
+                <option value="WITHOUT">Without GST</option>
+              </select>
+            </div>
 
-        {customerArranges ? (
-          <p className="muted">
-            Customer arranges transport, so both transport amounts are fixed
-            at zero.
-          </p>
-        ) : null}
+            {/* Field 8: Transport mode */}
+            <div className="flex flex-col md:col-span-2">
+              <label htmlFor="sale-transport-mode" className="app-label">
+                Transport mode
+              </label>
+              <select
+                id="sale-transport-mode"
+                value={form.transport_mode}
+                onChange={(event) =>
+                  changeTransportMode(
+                    event.target.value as SaleTransportMode,
+                  )
+                }
+                className="app-input cursor-pointer"
+              >
+                <option value="CUSTOMER_ARRANGES">Customer arranges</option>
+                <option value="WE_PAY_ABSORB">We pay and absorb</option>
+                <option value="WE_PAY_BILL">We pay and bill</option>
+              </select>
+            </div>
 
+            {/* Field 9: Transport cost */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-transport-cost" className="app-label">
+                Transport cost
+              </label>
+              <input
+                id="sale-transport-cost"
+                type="number"
+                inputMode="decimal"
+                min={customerArranges ? '0' : '0.01'}
+                step="0.01"
+                placeholder="0.00"
+                value={customerArranges ? '0.00' : form.transport_cost}
+                onChange={(event) =>
+                  setField('transport_cost', event.target.value)
+                }
+                disabled={customerArranges}
+                className="app-input"
+              />
+            </div>
+
+            {/* Field 10: Transport billed */}
+            <div className="flex flex-col">
+              <label htmlFor="sale-transport-billed" className="app-label">
+                Transport billed
+              </label>
+              <input
+                id="sale-transport-billed"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={billsTransport ? form.transport_billed : '0.00'}
+                onChange={(event) =>
+                  setField('transport_billed', event.target.value)
+                }
+                disabled={!billsTransport}
+                className="app-input"
+              />
+            </div>
+
+            {customerArranges && (
+              <div className="flex items-center text-xs text-slate-500 dark:text-slate-400">
+                Customer arranges transport, so both transport amounts are fixed at zero.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Alerts and Status */}
         {error !== null ? (
-          <p className="error" role="alert">
+          <div
+            role="alert"
+            className="rounded-input border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+          >
             {error}
-          </p>
+          </div>
         ) : null}
 
         {saved !== null ? (
-          <p className="status" role="status">
+          <div
+            role="status"
+            className="rounded-input border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
+          >
             Saved sale for {saved.customer}. Revenue{' '}
             {formatMoney(saved.revenue)} · GST {formatMoney(saved.gst_amount)}{' '}
             · net freight {formatMoney(saved.net_outbound_transport)}.
-          </p>
+          </div>
         ) : null}
 
-        <div className="actions">
-          <button type="submit" className="primary" disabled={saving}>
+        {/* 4. Action Area: right-hand side footer bar */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+          {initial !== null && onCancel !== undefined ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex h-10 items-center justify-center rounded-input border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            disabled={saving}
+            className="app-btn-primary"
+          >
             {saving
               ? 'Saving...'
               : initial === null
                 ? 'Add sale'
                 : 'Save changes'}
           </button>
-          {initial !== null && onCancel !== undefined ? (
-            <button type="button" onClick={onCancel}>
-              Cancel
-            </button>
-          ) : null}
         </div>
       </form>
     </section>
