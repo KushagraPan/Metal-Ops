@@ -29,6 +29,7 @@ const emptyHeat: Heat = {
   revenue: '0.00',
   net_outbound_transport: '0.00',
   heat_profit: null,
+  reports: [],
   is_provisional: true,
 }
 

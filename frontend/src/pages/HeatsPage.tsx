@@ -188,6 +188,9 @@ export default function HeatsPage() {
           onDelete={() => {
             void handleDelete(selected)
           }}
+          onReportsChanged={() =>
+            setRefreshKey((current) => current + 1)
+          }
         />
       ) : null}
 

@@ -255,7 +255,7 @@ Working-capital planning, multi-year projections, multiple workspaces or roles, 
 | Heats API and screen | #5 | In review |
 | Sales API and screen | #6 | Done |
 | Heat history and detail | #7 | In review |
-| Spectro reports and storage | #8 | Not started |
+| Spectro reports and storage | #8 | In review |
 | Expenses and dashboard figures | #9 | Not started |
 | Design system and charts | #10 | Not started |
 | Authentication | #11 | Not started |

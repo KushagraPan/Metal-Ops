@@ -41,6 +41,7 @@ const heat: Heat = {
   revenue: '144000.00',
   net_outbound_transport: '3000.00',
   heat_profit: '-72000.00',
+  reports: [],
   is_provisional: true,
 }
 

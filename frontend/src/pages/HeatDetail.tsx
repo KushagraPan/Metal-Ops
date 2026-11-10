@@ -5,11 +5,13 @@ import {
   formatOptionalMoney,
   formatOptionalPercent,
 } from '../lib/format'
+import HeatReports from './HeatReports'
 
 interface HeatDetailProps {
   heat: Heat
   onEdit?: (() => void) | undefined
   onDelete?: (() => void) | undefined
+  onReportsChanged?: (() => void) | undefined
 }
 
 function itemLabel(itemType: Sale['item_type']): string {
@@ -39,6 +41,7 @@ export default function HeatDetail({
   heat,
   onEdit,
   onDelete,
+  onReportsChanged,
 }: HeatDetailProps) {
   const duration =
     heat.duration_hours === null
@@ -185,6 +188,12 @@ export default function HeatDetail({
           </table>
         </div>
       )}
+
+      <HeatReports
+        heatId={heat.id}
+        reports={heat.reports}
+        onChanged={onReportsChanged}
+      />
 
       {heat.notes !== null ? (
         <p className="muted detail-notes">{heat.notes}</p>

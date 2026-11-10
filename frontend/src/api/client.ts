@@ -108,6 +108,34 @@ export interface PurchaseLot extends PurchaseLotInput {
 export type Alloy = 'ADC12' | 'LM6'
 export type ItemType = 'ADC12' | 'LM6' | 'DROSS' | 'IRON_SCRAP'
 export type ReportResult = 'PENDING' | 'PASS' | 'FAIL'
+
+export interface Report {
+  id: number
+  heat_id: number
+  sample_no: string
+  original_filename: string
+  size_bytes: number
+  uploaded_at: string
+  grade_tested: string | null
+  result: ReportResult
+  notes: string | null
+  elements: Record<string, string> | null
+}
+
+export interface ReportUploadInput {
+  file: File
+  sample_no: string
+  result: ReportResult
+  notes: string | null
+  grade_tested?: string | null
+}
+
+export interface ReportUpdateInput {
+  result?: ReportResult
+  notes?: string | null
+  grade_tested?: string | null
+}
+
 export type SaleTransportMode =
   | 'CUSTOMER_ARRANGES'
   | 'WE_PAY_ABSORB'
@@ -175,6 +203,7 @@ export interface Heat extends HeatFields {
   id: number
   inputs: HeatInputRead[]
   sales: Sale[]
+  reports: Report[]
   total_input_kg: string
   sold_alloy_kg: string
   yield_pct: string | null
@@ -237,6 +266,42 @@ export const api = {
       }),
     remove: (id: number): Promise<void> =>
       request<void>(`/api/heats/${id}`, { method: 'DELETE' }),
+  },
+  reports: {
+    list: (heatId: number): Promise<Report[]> =>
+      request<Report[]>(`/api/heats/${heatId}/reports`),
+    upload: (
+      heatId: number,
+      input: ReportUploadInput,
+    ): Promise<Report> => {
+      const body = new FormData()
+      body.append('file', input.file)
+      body.append('sample_no', input.sample_no)
+      body.append('result', input.result)
+      if (input.notes !== null) {
+        body.append('notes', input.notes)
+      }
+      if (input.grade_tested !== undefined && input.grade_tested !== null) {
+        body.append('grade_tested', input.grade_tested)
+      }
+      return request<Report>(`/api/heats/${heatId}/reports`, {
+        method: 'POST',
+        body,
+      })
+    },
+    update: (
+      id: number,
+      input: ReportUpdateInput,
+    ): Promise<Report> =>
+      request<Report>(`/api/reports/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    remove: (id: number): Promise<void> =>
+      request<void>(`/api/reports/${id}`, { method: 'DELETE' }),
+    downloadUrl: (id: number): string =>
+      apiUrl(`/api/reports/${id}/download`),
   },
   sales: {
     list: (): Promise<Sale[]> => request<Sale[]>('/api/sales'),
