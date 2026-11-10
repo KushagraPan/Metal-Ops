@@ -8,6 +8,7 @@ import type {
   PurchaseTransportMode,
 } from '../api/client'
 import { formatKg, formatMoney, formatOptionalMoney } from '../lib/format'
+import { CustomSelect } from '../components/ui/CustomSelect'
 
 interface PurchaseFormProps {
   initial?: PurchaseLot | null
@@ -224,12 +225,17 @@ export default function PurchaseForm({
             </select>
           </label>
 
-          <label className="field">
+          <div className="field">
             <span>Transport mode</span>
-            <select
+            <CustomSelect
+              label="Transport mode"
               value={form.transport_mode}
-              onChange={(event) => {
-                const mode = event.target.value as PurchaseTransportMode
+              options={[
+                { value: 'WE_PAY', label: 'We pay' },
+                { value: 'SUPPLIER_DELIVERS', label: 'Supplier delivers' },
+              ]}
+              onChange={(value) => {
+                const mode = value as PurchaseTransportMode
                 setForm((current) => ({
                   ...current,
                   transport_mode: mode,
@@ -241,11 +247,8 @@ export default function PurchaseForm({
                         : current.transport_cost,
                 }))
               }}
-            >
-              <option value="WE_PAY">We pay</option>
-              <option value="SUPPLIER_DELIVERS">Supplier delivers</option>
-            </select>
-          </label>
+            />
+          </div>
 
           <label className="field">
             <span>Transport cost</span>
