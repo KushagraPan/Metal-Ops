@@ -149,6 +149,22 @@ describe('SaleForm', () => {
     expect(api.sales.create).not.toHaveBeenCalled()
   })
 
+  it('rejects zero transport cost when the business pays', async () => {
+    const user = userEvent.setup()
+    render(<SaleForm heats={[heat]} onSaved={vi.fn()} />)
+
+    await user.type(screen.getByLabelText('Customer'), 'Demo Castings')
+    await user.type(screen.getByLabelText('Weight (kg)'), '600')
+    await user.type(screen.getByLabelText('Rate (₹/kg)'), '240')
+    await user.type(screen.getByLabelText('Transport cost'), '0')
+    await user.click(screen.getByRole('button', { name: 'Add sale' }))
+
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Transport cost must be greater than 0 when the business pays transport.',
+    )
+    expect(api.sales.create).not.toHaveBeenCalled()
+  })
+
   it('forces both transport amounts to zero when the customer arranges', async () => {
     vi.mocked(api.sales.create).mockResolvedValue(sale)
     const user = userEvent.setup()

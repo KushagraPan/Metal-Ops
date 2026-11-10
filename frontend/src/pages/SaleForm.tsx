@@ -159,6 +159,12 @@ function validate(
   const cost = form.transport_cost.trim() === '' ? '0' : form.transport_cost
   const billed =
     form.transport_billed.trim() === '' ? '0' : form.transport_billed
+  if (
+    form.transport_mode !== 'CUSTOMER_ARRANGES' &&
+    (!isTwoDecimals(cost) || Number(cost) <= 0)
+  ) {
+    return 'Transport cost must be greater than 0 when the business pays transport.'
+  }
   if (!isTwoDecimals(cost) || Number(cost) < 0) {
     return 'Transport cost must be zero or more with at most 2 decimals.'
   }
@@ -436,7 +442,7 @@ export default function SaleForm({
             <input
               type="number"
               inputMode="decimal"
-              min="0"
+              min={customerArranges ? '0' : '0.01'}
               step="0.01"
               value={customerArranges ? '0.00' : form.transport_cost}
               onChange={(event) =>

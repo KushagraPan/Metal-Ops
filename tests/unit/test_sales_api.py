@@ -419,6 +419,84 @@ def test_we_pay_bill_rejects_billed_above_cost(client: TestClient) -> None:
     assert client.get("/api/sales").json() == []
 
 
+@pytest.mark.parametrize("mode", ["WE_PAY_ABSORB", "WE_PAY_BILL"])
+@pytest.mark.parametrize(
+    ("cost", "omitted"),
+    [("0.00", False), ("-1.00", False), (None, True)],
+)
+def test_we_pay_modes_require_positive_transport_cost(
+    client: TestClient,
+    mode: str,
+    cost: str | None,
+    omitted: bool,
+) -> None:
+    lot = create_lot(client)
+    heat = create_heat(client, lot_id=lot["id"])
+    payload = sale_payload(
+        heat_id=heat["id"],
+        transport_mode=mode,
+        transport_billed="0.00",
+    )
+    if omitted:
+        payload.pop("transport_cost")
+    else:
+        payload["transport_cost"] = cost
+
+    response = client.post("/api/sales", json=payload)
+
+    assert response.status_code == 422, response.text
+    assert client.get("/api/sales").json() == []
+
+
+def test_update_rejects_zero_transport_cost_for_we_pay_mode(
+    client: TestClient,
+) -> None:
+    lot = create_lot(client)
+    heat = create_heat(client, lot_id=lot["id"])
+    sale = create_sale(
+        client,
+        heat_id=heat["id"],
+        transport_mode="WE_PAY_ABSORB",
+        transport_cost="3000.00",
+    )
+
+    response = client.put(
+        f"/api/sales/{sale['id']}",
+        json=sale_payload(
+            heat_id=heat["id"],
+            transport_mode="WE_PAY_BILL",
+            transport_cost="0.00",
+            transport_billed="0.00",
+        ),
+    )
+
+    assert response.status_code == 422, response.text
+    stored = client.get(f"/api/sales/{sale['id']}").json()
+    assert stored["transport_mode"] == "WE_PAY_ABSORB"
+    assert stored["transport_cost"] == "3000.00"
+    assert stored["transport_billed"] == "0.00"
+
+
+def test_customer_arranges_allows_omitted_transport_amounts(
+    client: TestClient,
+) -> None:
+    lot = create_lot(client)
+    heat = create_heat(client, lot_id=lot["id"])
+    payload = sale_payload(
+        heat_id=heat["id"],
+        transport_mode="CUSTOMER_ARRANGES",
+    )
+    payload.pop("transport_cost")
+    payload.pop("transport_billed")
+
+    response = client.post("/api/sales", json=payload)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["transport_cost"] == "0.00"
+    assert body["transport_billed"] == "0.00"
+
+
 def test_gst_mode_never_changes_heat_profit(client: TestClient) -> None:
     lot = create_lot(client)
     heat = create_heat(client, lot_id=lot["id"])

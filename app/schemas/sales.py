@@ -20,7 +20,8 @@ class SaleWrite(BaseModel):
     """Payload for creating or replacing a sale.
 
     The `WE_PAY_BILL` billed-at-or-below-cost cap comes from issue #6's
-    acceptance criteria; product-spec R6 only defines net freight.
+    acceptance criteria; product-spec R6 only defines net freight. Both
+    `WE_PAY_ABSORB` and `WE_PAY_BILL` also require a positive transport cost.
     """
 
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -50,6 +51,15 @@ class SaleWrite(BaseModel):
 
     @model_validator(mode="after")
     def apply_transport_rules(self) -> SaleWrite:
+        if self.transport_mode in (
+            SaleTransportMode.WE_PAY_ABSORB,
+            SaleTransportMode.WE_PAY_BILL,
+        ) and self.transport_cost <= 0:
+            raise ValueError(
+                "transport_cost must be greater than 0 when the business "
+                "pays transport"
+            )
+
         if self.transport_mode == SaleTransportMode.CUSTOMER_ARRANGES:
             self.transport_cost = Decimal("0.00")
             self.transport_billed = Decimal("0.00")
