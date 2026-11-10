@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { FileText, Upload } from 'lucide-react'
 
 import { api } from '../api/client'
 import type { Report, ReportResult } from '../api/client'
@@ -148,16 +149,42 @@ export default function HeatReports({
   }
 
   return (
-    <section className="report-section">
-      <h3>Spectro reports</h3>
-      {error !== null ? (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      ) : null}
+    <div className="space-y-6">
+      {/* 4. Structured Header for Spectro Reports */}
+      <div className="border-b border-slate-200 pb-3 dark:border-slate-800 flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            Spectro reports
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Laboratory spectro testing certificates and alloy composition analysis.
+          </p>
+        </div>
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          {rows.length} {rows.length === 1 ? 'report' : 'reports'}
+        </span>
+      </div>
 
+      {error !== null && (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+        >
+          {error}
+        </div>
+      )}
+
+      {/* Reports Table or Clean Empty State */}
       {rows.length === 0 ? (
-        <p className="muted">No reports uploaded.</p>
+        <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center dark:border-slate-800">
+          <FileText className="mx-auto h-8 w-8 text-slate-400 dark:text-slate-600 mb-2" />
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            No reports uploaded.
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            Upload the first spectro report PDF using the form below.
+          </p>
+        </div>
       ) : (
         <div className="table-wrap">
           <table>
@@ -178,11 +205,23 @@ export default function HeatReports({
                     <strong>{report.sample_no}</strong>
                   </td>
                   <td>{dateTimeLabel(report.uploaded_at)}</td>
-                  <td>{resultLabel(report.result)}</td>
+                  <td>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        report.result === 'PASS'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                          : report.result === 'FAIL'
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+                      }`}
+                    >
+                      {resultLabel(report.result)}
+                    </span>
+                  </td>
                   <td>{report.notes ?? '—'}</td>
                   <td>
                     {report.original_filename}{' '}
-                    <span className="muted">
+                    <span className="muted text-xs">
                       ({sizeLabel(report.size_bytes)})
                     </span>
                   </td>
@@ -218,94 +257,180 @@ export default function HeatReports({
         </div>
       )}
 
-      {editing !== null ? (
-        <form className="report-edit" onSubmit={handleEdit}>
-          <h4>Edit report {editing.sample_no}</h4>
-          <div className="form-grid">
-            <label className="field">
-              <span>Edit result</span>
+      {/* Edit Form */}
+      {editing !== null && (
+        <form
+          className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50 space-y-3"
+          onSubmit={handleEdit}
+        >
+          <div className="border-b border-slate-200 pb-2 dark:border-slate-800">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Edit report {editing.sample_no}
+            </h4>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="edit-result" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Edit result
+              </label>
               <select
+                id="edit-result"
                 value={editResult}
                 onChange={(event) =>
                   setEditResult(event.target.value as ReportResult)
                 }
+                className="h-10 w-full cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="PENDING">Pending</option>
                 <option value="PASS">Pass</option>
                 <option value="FAIL">Fail</option>
               </select>
-            </label>
-            <label className="field">
-              <span>Edit notes</span>
-              <textarea
-                rows={2}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="edit-notes" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Edit notes
+              </label>
+              <input
+                id="edit-notes"
+                type="text"
                 value={editNotes}
                 onChange={(event) => setEditNotes(event.target.value)}
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
-            </label>
+            </div>
           </div>
-          <div className="actions">
-            <button type="submit" className="primary" disabled={saving}>
-              Save changes
-            </button>
-            <button type="button" onClick={() => setEditingId(null)}>
+          <div className="flex gap-2 justify-end pt-1">
+            <button
+              type="button"
+              onClick={() => setEditingId(null)}
+              className="h-9 px-4 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
               Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-9 px-4 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 hover:bg-amber-400 disabled:opacity-50"
+            >
+              Save changes
             </button>
           </div>
         </form>
-      ) : null}
+      )}
 
-      <form className="report-upload" onSubmit={handleUpload}>
-        <h4>Upload a report</h4>
-        <div className="form-grid">
-          <label className="field">
-            <span>Sample number</span>
-            <input
-              type="text"
-              maxLength={50}
-              value={sampleNo}
-              onChange={(event) => setSampleNo(event.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span>PDF file</span>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={(event) =>
-                setFile(event.target.files?.[0] ?? null)
-              }
-            />
-          </label>
-          <label className="field">
-            <span>Result</span>
-            <select
-              value={result}
-              onChange={(event) =>
-                setResult(event.target.value as ReportResult)
-              }
+      {/* Upload Form Container */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40 space-y-3">
+        {/* 4. Structured Header for Upload Form */}
+        <div className="border-b border-slate-200/80 pb-2 dark:border-slate-800">
+          <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Upload a report
+          </h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Attach spectrometer test certificate PDF for sample tracking and chemical verification.
+          </p>
+        </div>
+
+        <form onSubmit={handleUpload} className="space-y-4">
+          {/* 1. Responsive Grid & 2. Uniform h-10 Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            {/* Field 1: Sample number */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="upload-sample-no"
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
+                Sample number
+              </label>
+              <input
+                id="upload-sample-no"
+                type="text"
+                maxLength={50}
+                value={sampleNo}
+                placeholder="e.g. S-2026-001"
+                onChange={(event) => setSampleNo(event.target.value)}
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </div>
+
+            {/* Field 2: Custom PDF File Upload (3. Hidden native input with styled trigger) */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                PDF file
+              </span>
+              <label
+                htmlFor="upload-pdf-file"
+                className="flex h-10 cursor-pointer items-center justify-between rounded-md border border-dashed border-slate-300 bg-white px-3 text-sm text-slate-600 transition hover:border-amber-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-amber-500 dark:hover:bg-slate-800"
+              >
+                <span className="truncate pr-2">
+                  {file ? file.name : 'Choose PDF...'}
+                </span>
+                <Upload className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                <input
+                  id="upload-pdf-file"
+                  ref={fileInput}
+                  type="file"
+                  aria-label="PDF file"
+                  accept="application/pdf,.pdf"
+                  onChange={(event) =>
+                    setFile(event.target.files?.[0] ?? null)
+                  }
+                  className="sr-only"
+                />
+              </label>
+            </div>
+
+            {/* Field 3: Result */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="upload-result"
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
+                Result
+              </label>
+              <select
+                id="upload-result"
+                value={result}
+                onChange={(event) =>
+                  setResult(event.target.value as ReportResult)
+                }
+                className="h-10 w-full cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                <option value="PENDING">Pending</option>
+                <option value="PASS">Pass</option>
+                <option value="FAIL">Fail</option>
+              </select>
+            </div>
+
+            {/* Field 4: Notes (Single-line input, h-10) */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="upload-notes"
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
+                Notes
+              </label>
+              <input
+                id="upload-notes"
+                type="text"
+                value={notes}
+                placeholder="Optional notes"
+                onChange={(event) => setNotes(event.target.value)}
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="submit"
+              disabled={uploading}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-amber-500 px-5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-50"
             >
-              <option value="PENDING">Pending</option>
-              <option value="PASS">Pass</option>
-              <option value="FAIL">Fail</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Notes</span>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-          </label>
-        </div>
-        <div className="actions">
-          <button type="submit" className="primary" disabled={uploading}>
-            {uploading ? 'Uploading...' : 'Upload report'}
-          </button>
-        </div>
-      </form>
-    </section>
+              {uploading ? 'Uploading...' : 'Upload report'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }

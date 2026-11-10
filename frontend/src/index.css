@@ -262,7 +262,11 @@ td.actions {
   white-space: nowrap;
 }
 
-td.actions button {
+td.actions button,
+td.actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.25rem 0.65rem;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -271,10 +275,12 @@ td.actions button {
   color: hsl(var(--foreground));
   border: 1px solid hsl(var(--border));
   border-radius: 0.375rem;
+  text-decoration: none;
   transition: all 0.15s ease;
 }
 
-td.actions button:hover {
+td.actions button:hover,
+td.actions a:hover {
   background: hsl(var(--secondary));
   border-color: hsl(var(--border));
 }
