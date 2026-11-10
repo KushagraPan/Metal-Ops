@@ -126,6 +126,18 @@ Acceptance criteria:
 - Files are stored under random keys on a Docker volume and are still downloadable after the container restarts.
 - Downloads require a session; there is no public file URL.
 - Optional: element percentages entered by hand and shown on the detail page.
+- 10 MB means 10 MiB (10,485,760 bytes): exactly 10 MiB is accepted, one byte more is rejected with a clear error; the file is checked while streaming and never fully loaded into memory before the check.
+- File type is checked by the "%PDF-" signature at the start of the file; the filename extension and the client content type are ignored for validation.
+- Stored files use a random key (not derived from the filename); the original filename is stored only as metadata and never used in a path.
+- If the database write or the file write fails, neither is kept: no orphan file and no orphan row.
+- Sample number is required (1 to 50 characters); the upload time is set by the server. Several reports per heat are allowed, including the same sample number.
+- Each report has a result (PENDING, PASS, FAIL; default PENDING) and notes; result and notes can be edited after upload.
+- Deleting a report deletes its file. Deleting a heat that has reports returns 409 and deletes nothing, like the sales guard.
+- Downloads go only through an API endpoint (Content-Disposition attachment, Content-Type application/pdf, X-Content-Type-Options nosniff); there is no static or public file URL. The session requirement is verified when #11 lands.
+- Storage sits behind the storage interface with LocalStorage first; its folder is configurable. Persistence is tested with a new app instance on the same folder; real Docker persistence is verified in #13.
+- The #7 report_result filter matches a heat that has at least one report of that result; a heat with no report matches none. Re-test it with reports created through this upload endpoint.
+- The seed report has a real tiny PDF behind it so its download works.
+- Optional element percentages: deferred unless trivial (0 to 100 each, 2 decimals, sum at most 100).
 
 Tests: valid PDF, fake PDF with a `.pdf` name, oversized file, restart persistence (integration).
 
