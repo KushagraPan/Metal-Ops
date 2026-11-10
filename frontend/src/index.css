@@ -36,6 +36,20 @@ body {
   color: var(--text);
 }
 
+input,
+select,
+textarea {
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+select option {
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
 .app-shell {
   max-width: 76rem;
   margin: 0 auto;
@@ -213,13 +227,25 @@ h3 {
 .field select,
 .field textarea {
   width: 100%;
+  min-height: 2.6rem;
   padding: 0.55rem 0.65rem;
-  font: inherit;
   font-weight: 400;
   color: inherit;
   background: var(--page);
   border: 1px solid var(--border);
   border-radius: 0.45rem;
+}
+
+.field input,
+.field select {
+  height: 2.6rem;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.field textarea {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
 }
 
 .field input:disabled {
