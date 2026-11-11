@@ -303,8 +303,36 @@ GitHub Actions workflow running `make test` on every pull request.
 Acceptance criteria:
 - A pull request with a failing test shows a failed check.
 - The check is required before merging to `main`.
+- The workflow triggers on pull_request (never pull_request_target) and on
+  push to main. Top-level permissions: contents: read only. Every action is
+  pinned to a full commit SHA with a version comment. No secrets are used;
+  tests use throwaway credentials. concurrency cancels superseded runs; every
+  job has a timeout.
+- Jobs call the same make targets used locally: backend unit tests,
+  integration tests against a Postgres service container (pinned
+  postgres:16-alpine, TEST_DATABASE_URL parsed by the existing code), frontend
+  tests, tsc --noEmit and npm run build.
+- Dependency and supply-chain checks fail the build: npm audit (high and
+  above), pip-audit, a check that package.json and requirements.txt use exact
+  pinned versions, and a secret scan (gitleaks) over the full history.
+- Docker: the backend and frontend images build in CI and are scanned with
+  trivy; HIGH and CRITICAL findings fail the job unless listed in a documented
+  ignore file with a reason and an expiry date.
+- Pip and npm caches are used; backend and frontend jobs run in parallel.
+- Branch protection: the README documents the exact GitHub steps to require a
+  pull request and the check named "ci" (or the final aggregate job) before
+  merging to main. Verification: a deliberately failing pull request shows a red
+  check and a blocked merge button, then is closed and its branch deleted. A
+  screenshot or the link goes into the issue.
+- UI checks (375 px overflow, contrast, Lighthouse) are out of scope for #14 and
+  tracked as a separate follow-up issue.
 
 Tests: one deliberately failing pull request, then closed.
+
+Follow-ups created:
+- UI checks in CI (375 px overflow, contrast, Lighthouse)
+- Nightly image scan
+- Dependabot or Renovate for pinned versions
 
 ## #15 [P0] CD: deploy to dev, manual deploy to production, rollback
 Labels: devops · Depends on: #13, #14
