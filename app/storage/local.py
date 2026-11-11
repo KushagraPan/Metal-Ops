@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Iterable, BinaryIO
 from uuid import uuid4
 
+import app.env  # noqa: F401 - ensures .env is loaded before resolving STORAGE_DIR
+
 from app.storage.base import (
     Storage,
     StorageError,

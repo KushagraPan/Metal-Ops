@@ -103,7 +103,17 @@ def logout(
 ) -> dict[str, bool]:
     token = get_session_token(request)
     AuthService(session).logout(token)
-    response.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
+    is_secure = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto", "").lower() == "https"
+    )
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        secure=is_secure,
+        httponly=True,
+        samesite="lax",
+    )
     return {"ok": True}
 
 
