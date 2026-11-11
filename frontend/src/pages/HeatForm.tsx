@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import { api } from '../api/client'
 import type {
@@ -6,6 +6,7 @@ import type {
   Heat,
   HeatWrite,
   PurchaseLot,
+  ReportResult,
 } from '../api/client'
 import {
   formatKg,
@@ -187,11 +188,28 @@ export default function HeatForm({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<Heat | null>(null)
+  const [reportFile, setReportFile] = useState<File | null>(null)
+  const [reportSampleNo, setReportSampleNo] = useState('')
+  const [reportResult, setReportResult] = useState<ReportResult>('PENDING')
+  const [reportNotes, setReportNotes] = useState('')
+  const [uploadWarning, setUploadWarning] = useState<{
+    heat: Heat
+    message: string
+  } | null>(null)
+  const reportFileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setForm(initial === null ? emptyForm() : formFromHeat(initial))
     setError(null)
     setSaved(null)
+    setUploadWarning(null)
+    setReportFile(null)
+    setReportSampleNo('')
+    setReportResult('PENDING')
+    setReportNotes('')
+    if (reportFileInput.current) {
+      reportFileInput.current.value = ''
+    }
   }, [initial])
 
   function setField<K extends keyof FormState>(
@@ -261,19 +279,64 @@ export default function HeatForm({
       setError(problem)
       return
     }
+    if (initial === null && reportFile !== null && reportSampleNo.trim() === '') {
+      setError('Sample number is required.')
+      return
+    }
 
     setSaving(true)
     setError(null)
     setSaved(null)
+    setUploadWarning(null)
     try {
       const payload = payloadFrom(form)
       const heat =
         initial === null
           ? await api.heats.create(payload)
           : await api.heats.update(initial.id, payload)
-      setSaved(heat)
-      onSaved(heat)
-      setForm(emptyForm())
+
+      if (initial === null && reportFile !== null) {
+        try {
+          await api.reports.upload(heat.id, {
+            file: reportFile,
+            sample_no: reportSampleNo.trim(),
+            result: reportResult,
+            notes: reportNotes.trim() === '' ? null : reportNotes.trim(),
+          })
+          setSaved(heat)
+          onSaved(heat)
+          setForm(emptyForm())
+          setReportFile(null)
+          setReportSampleNo('')
+          setReportResult('PENDING')
+          setReportNotes('')
+          if (reportFileInput.current) {
+            reportFileInput.current.value = ''
+          }
+        } catch (uploadError: unknown) {
+          const reason =
+            uploadError instanceof Error
+              ? uploadError.message
+              : 'Upload failed.'
+          setUploadWarning({
+            heat,
+            message: `Heat saved. The report could not be uploaded: ${reason}. You can upload it from the heat's page.`,
+          })
+          onSaved(heat)
+          setForm(emptyForm())
+          setReportFile(null)
+          setReportSampleNo('')
+          setReportResult('PENDING')
+          setReportNotes('')
+          if (reportFileInput.current) {
+            reportFileInput.current.value = ''
+          }
+        }
+      } else {
+        setSaved(heat)
+        onSaved(heat)
+        setForm(emptyForm())
+      }
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -604,6 +667,101 @@ export default function HeatForm({
           )}
         </section>
 
+        {initial === null && (
+          <section className="space-y-4 pt-2 border-t border-border">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">
+                Spectro report (optional)
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Attach a spectrometer analysis certificate PDF now or later.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5 max-w-md">
+              <label
+                htmlFor="heat-report-file"
+                className="text-xs font-semibold text-muted-foreground"
+              >
+                PDF file
+              </label>
+              <input
+                id="heat-report-file"
+                ref={reportFileInput}
+                type="file"
+                aria-label="PDF file"
+                accept="application/pdf,.pdf"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  setReportFile(f)
+                }}
+                className="h-10 w-full rounded-input border border-border bg-card px-3 py-1.5 text-sm text-foreground file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-secondary file:text-foreground hover:file:cursor-pointer outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              />
+            </div>
+
+            {reportFile !== null && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end p-3 rounded-lg border border-border bg-muted/20">
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="heat-report-sample-no"
+                    className="text-xs font-semibold text-muted-foreground"
+                  >
+                    Sample number
+                  </label>
+                  <input
+                    id="heat-report-sample-no"
+                    type="text"
+                    aria-label="Sample number"
+                    required
+                    value={reportSampleNo}
+                    onChange={(e) => setReportSampleNo(e.target.value)}
+                    placeholder="e.g. S-2026-001"
+                    className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="heat-report-result"
+                    className="text-xs font-semibold text-muted-foreground"
+                  >
+                    Result
+                  </label>
+                  <Select
+                    id="heat-report-result"
+                    label="Result"
+                    value={reportResult}
+                    options={[
+                      { value: 'PENDING', label: 'Pending' },
+                      { value: 'PASS', label: 'Pass' },
+                      { value: 'FAIL', label: 'Fail' },
+                    ]}
+                    onChange={(val) => setReportResult(val as ReportResult)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="heat-report-notes"
+                    className="text-xs font-semibold text-muted-foreground"
+                  >
+                    Notes
+                  </label>
+                  <input
+                    id="heat-report-notes"
+                    type="text"
+                    aria-label="Notes"
+                    value={reportNotes}
+                    onChange={(e) => setReportNotes(e.target.value)}
+                    placeholder="Optional notes"
+                    className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         {error !== null ? (
           <p className="text-sm font-semibold text-destructive dark:text-rose-400" role="alert">
             {error}
@@ -619,27 +777,53 @@ export default function HeatForm({
           </p>
         ) : null}
 
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex h-10 items-center justify-center rounded-input bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        {uploadWarning !== null && (
+          <div
+            role="status"
+            className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 text-sm space-y-1.5"
           >
-            {saving
-              ? 'Saving...'
-              : initial === null
-                ? 'Add heat'
-                : 'Save changes'}
-          </button>
-          {initial !== null && onCancel !== undefined ? (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="inline-flex h-10 items-center justify-center rounded-input border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            <p>{uploadWarning.message}</p>
+            <a
+              href={`#heat-${uploadWarning.heat.id}`}
+              onClick={(e) => {
+                e.preventDefault()
+                onSaved(uploadWarning.heat)
+              }}
+              className="inline-block font-semibold underline hover:text-amber-950 dark:hover:text-amber-100"
             >
-              Cancel
+              View heat {uploadWarning.heat.heat_no}
+            </a>
+          </div>
+        )}
+
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex h-10 items-center justify-center rounded-input bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving
+                ? 'Saving...'
+                : initial === null
+                  ? 'Add heat'
+                  : 'Save changes'}
             </button>
-          ) : null}
+            {initial !== null && onCancel !== undefined ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="inline-flex h-10 items-center justify-center rounded-input border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
+          {initial === null && (
+            <p className="text-xs text-muted-foreground">
+              You can also add spectro reports later from the heat's View page.
+            </p>
+          )}
         </div>
       </form>
     </section>

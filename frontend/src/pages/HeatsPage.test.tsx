@@ -113,4 +113,40 @@ describe('HeatsPage', () => {
       })
     })
   })
+
+  it('the row action opens the upload form on that heat detail', async () => {
+    const heatWithReports: Heat = {
+      ...heat,
+      reports: [
+        {
+          id: 99,
+          heat_id: heat.id,
+          sample_no: 'S-99',
+          original_filename: 's99.pdf',
+          size_bytes: 1024,
+          uploaded_at: '2026-10-15T12:00:00Z',
+          grade_tested: 'ADC12',
+          result: 'PASS',
+          notes: null,
+          elements: null,
+        },
+      ],
+    }
+    vi.mocked(api.heats.list).mockResolvedValue([heatWithReports])
+    vi.mocked(api.purchases.list).mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<HeatsPage />)
+    await screen.findByText('H-1001')
+
+    const uploadReportAction = screen.getByRole('button', {
+      name: `Upload report for ${heat.heat_no}`,
+    })
+    await user.click(uploadReportAction)
+
+    expect(
+      screen.getByRole('heading', { name: `Heat ${heat.heat_no}` }),
+    ).toBeDefined()
+    expect(await screen.findByLabelText('Sample number')).toBeDefined()
+  })
 })

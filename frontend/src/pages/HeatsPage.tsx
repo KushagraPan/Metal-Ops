@@ -46,6 +46,7 @@ export default function HeatsPage() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Heat | null>(null)
   const [selected, setSelected] = useState<Heat | null>(null)
+  const [openUploadForHeatId, setOpenUploadForHeatId] = useState<number | null>(null)
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -189,6 +190,7 @@ export default function HeatsPage() {
       {selected !== null ? (
         <HeatDetail
           heat={selected}
+          initialUploadOpen={openUploadForHeatId === selected.id}
           onEdit={() => setEditing(selected)}
           onDelete={() => {
             void handleDelete(selected)
@@ -399,9 +401,23 @@ export default function HeatsPage() {
                         type="button"
                         aria-label={`View ${heat.heat_no}`}
                         className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => setSelected(heat)}
+                        onClick={() => {
+                          setSelected(heat)
+                          setOpenUploadForHeatId(null)
+                        }}
                       >
                         View
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Upload report for ${heat.heat_no}`}
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => {
+                          setSelected(heat)
+                          setOpenUploadForHeatId(heat.id)
+                        }}
+                      >
+                        Upload report
                       </button>
                       <button
                         type="button"

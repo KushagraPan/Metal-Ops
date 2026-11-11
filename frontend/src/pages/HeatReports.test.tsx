@@ -175,4 +175,36 @@ describe('HeatReports', () => {
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('file must be a PDF')
   })
+
+  it('the header button toggles the upload form', async () => {
+    const user = userEvent.setup()
+    render(<HeatReports heatId={4} reports={[report]} />)
+
+    // Initially collapsed because heat has existing reports
+    expect(screen.queryByLabelText('Sample number')).toBeNull()
+
+    // Click header button to open
+    const openBtn = screen.getByRole('button', { name: 'Upload report' })
+    await user.click(openBtn)
+
+    // Upload form is now open
+    expect(screen.getByLabelText('Sample number')).toBeDefined()
+
+    // Click header button again to collapse
+    const closeBtn = screen.getByRole('button', { name: 'Cancel upload' })
+    await user.click(closeBtn)
+
+    // Form is closed
+    expect(screen.queryByLabelText('Sample number')).toBeNull()
+  })
+
+  it('shows empty state message and expands upload form when heat has no reports', () => {
+    render(<HeatReports heatId={4} reports={[]} />)
+    expect(
+      screen.getByText(
+        'No lab report yet. Upload the spectro PDF when it arrives from the lab. You can save it as Pending and change the result later.',
+      ),
+    ).toBeDefined()
+    expect(screen.getByLabelText('Sample number')).toBeDefined()
+  })
 })

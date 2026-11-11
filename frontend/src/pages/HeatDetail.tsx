@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/badge'
 
 interface HeatDetailProps {
   heat: Heat
+  initialUploadOpen?: boolean
   onEdit?: (() => void) | undefined
   onDelete?: (() => void) | undefined
   onReportsChanged?: (() => void) | undefined
@@ -40,6 +41,7 @@ function transportLabel(sale: Sale): string {
 
 export default function HeatDetail({
   heat,
+  initialUploadOpen = false,
   onEdit,
   onDelete,
   onReportsChanged,
@@ -221,6 +223,7 @@ export default function HeatDetail({
         <HeatReports
           heatId={heat.id}
           reports={heat.reports}
+          initialUploadOpen={initialUploadOpen}
           onChanged={onReportsChanged}
         />
       </div>

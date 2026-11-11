@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '../api/client'
-import type { Heat, PurchaseLot } from '../api/client'
+import type { Heat, PurchaseLot, Report } from '../api/client'
 import HeatForm from './HeatForm'
 
 vi.mock('../api/client', () => ({
@@ -12,6 +12,9 @@ vi.mock('../api/client', () => ({
     heats: {
       create: vi.fn(),
       update: vi.fn(),
+    },
+    reports: {
+      upload: vi.fn(),
     },
   },
 }))
@@ -94,7 +97,101 @@ describe('HeatForm', () => {
     expect(status.textContent).toContain('Yield n/a')
     expect(status.textContent).toContain('scrap cost ₹0.00')
     expect(status.textContent).toContain('profit n/a')
+    expect(api.reports.upload).not.toHaveBeenCalled()
+    expect(
+      screen.getByText(
+        "You can also add spectro reports later from the heat's View page.",
+      ),
+    ).toBeDefined()
     expect(onSaved).toHaveBeenCalledWith(emptyHeat)
+  })
+
+  it('heat saves and uploads with a file', async () => {
+    vi.mocked(api.heats.create).mockResolvedValue(emptyHeat)
+    const uploadedReport: Report = {
+      id: 10,
+      heat_id: emptyHeat.id,
+      sample_no: 'S-2026-001',
+      original_filename: 'spectro.pdf',
+      size_bytes: 100,
+      uploaded_at: '2026-10-15T10:00:00Z',
+      grade_tested: null,
+      result: 'PENDING',
+      notes: 'Lab analysis pending',
+      elements: null,
+    }
+    vi.mocked(api.reports.upload).mockResolvedValue(uploadedReport)
+    const onSaved = vi.fn()
+    const user = userEvent.setup()
+    render(<HeatForm lots={[]} onSaved={onSaved} />)
+
+    await user.type(screen.getByLabelText('Heat number'), 'H-1001')
+    await user.type(screen.getByLabelText('Output (kg)'), '100')
+
+    const file = new File(['%PDF-1.4 test'], 'spectro.pdf', {
+      type: 'application/pdf',
+    })
+    await user.upload(screen.getByLabelText('PDF file'), file)
+
+    await user.type(screen.getByLabelText('Sample number'), 'S-2026-001')
+    await user.type(screen.getByLabelText('Notes'), 'Lab analysis pending')
+
+    await user.click(screen.getByRole('button', { name: 'Add heat' }))
+
+    expect(api.heats.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        heat_no: 'H-1001',
+        output_kg: '100',
+      }),
+    )
+    expect(api.reports.upload).toHaveBeenCalledWith(
+      emptyHeat.id,
+      expect.objectContaining({
+        file,
+        sample_no: 'S-2026-001',
+        result: 'PENDING',
+        notes: 'Lab analysis pending',
+      }),
+    )
+    expect(onSaved).toHaveBeenCalledWith(emptyHeat)
+  })
+
+  it('heat saves and the upload fails (fake PDF) with the message and the heat kept', async () => {
+    vi.mocked(api.heats.create).mockResolvedValue(emptyHeat)
+    vi.mocked(api.reports.upload).mockRejectedValue(
+      new Error('File signature is not a valid PDF'),
+    )
+    const onSaved = vi.fn()
+    const user = userEvent.setup()
+    render(<HeatForm lots={[]} onSaved={onSaved} />)
+
+    await user.type(screen.getByLabelText('Heat number'), 'H-1001')
+    await user.type(screen.getByLabelText('Output (kg)'), '100')
+
+    const fakeFile = new File(['fake content'], 'fake.pdf', {
+      type: 'application/pdf',
+    })
+    await user.upload(screen.getByLabelText('PDF file'), fakeFile)
+
+    await user.type(screen.getByLabelText('Sample number'), 'S-2026-002')
+
+    await user.click(screen.getByRole('button', { name: 'Add heat' }))
+
+    expect(api.heats.create).toHaveBeenCalled()
+    expect(api.reports.upload).toHaveBeenCalled()
+
+    // Heat is kept: onSaved was called
+    expect(onSaved).toHaveBeenCalledWith(emptyHeat)
+
+    // Warning message is displayed
+    const warning = await screen.findByText(
+      /Heat saved\. The report could not be uploaded: File signature is not a valid PDF\. You can upload it from the heat's page\./i,
+    )
+    expect(warning).toBeDefined()
+
+    // Link to heat is offered
+    const heatLink = screen.getByRole('link', { name: /View heat H-1001/i })
+    expect(heatLink).toBeDefined()
   })
 
   it('rejects output kg above the total input kg', async () => {

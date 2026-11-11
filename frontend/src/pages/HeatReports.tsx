@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/badge'
 interface HeatReportsProps {
   heatId: number
   reports: Report[]
+  initialUploadOpen?: boolean
   onChanged?: (() => void) | undefined
 }
 
@@ -45,9 +46,13 @@ function sizeLabel(bytes: number): string {
 export default function HeatReports({
   heatId,
   reports,
+  initialUploadOpen = false,
   onChanged,
 }: HeatReportsProps) {
   const [rows, setRows] = useState<Report[]>(reports)
+  const [uploadOpen, setUploadOpen] = useState(
+    () => initialUploadOpen || reports.length === 0,
+  )
   const [sampleNo, setSampleNo] = useState('')
   const [result, setResult] = useState<ReportResult>('PENDING')
   const [notes, setNotes] = useState('')
@@ -63,6 +68,16 @@ export default function HeatReports({
   useEffect(() => {
     setRows(reports)
   }, [reports])
+
+  useEffect(() => {
+    if (initialUploadOpen) {
+      setUploadOpen(true)
+      const card = document.getElementById('spectro-reports-card')
+      if (card && typeof card.scrollIntoView === 'function') {
+        card.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+  }, [initialUploadOpen, heatId])
 
   const editing = rows.find((row) => row.id === editingId) ?? null
 
@@ -168,8 +183,8 @@ export default function HeatReports({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 space-y-5">
-      {/* 1. Header with title and small count */}
+    <div id="spectro-reports-card" className="rounded-xl border border-border bg-card p-5 space-y-5">
+      {/* 1. Header with title, count, and upload toggle button */}
       <div className="flex items-center justify-between pb-3 border-b border-border">
         <div>
           <h3 className="text-base font-semibold text-foreground">
@@ -179,9 +194,19 @@ export default function HeatReports({
             Laboratory spectro testing certificates and alloy composition analysis.
           </p>
         </div>
-        <span className="text-xs font-medium text-muted-foreground">
-          {rows.length} {rows.length === 1 ? 'report' : 'reports'}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-muted-foreground">
+            {rows.length} {rows.length === 1 ? 'report' : 'reports'}
+          </span>
+          <button
+            type="button"
+            aria-expanded={uploadOpen}
+            onClick={() => setUploadOpen((open) => !open)}
+            className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {uploadOpen ? 'Cancel upload' : 'Upload report'}
+          </button>
+        </div>
       </div>
 
       {error !== null && (
@@ -197,11 +222,8 @@ export default function HeatReports({
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-6 text-center bg-muted/10">
           <FileText className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-          <p className="text-sm font-medium text-foreground">
-            No reports uploaded.
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Upload the first spectro report PDF using the form below.
+          <p className="text-sm text-muted-foreground">
+            No lab report yet. Upload the spectro PDF when it arrives from the lab. You can save it as Pending and change the result later.
           </p>
         </div>
       ) : (
@@ -346,126 +368,128 @@ export default function HeatReports({
       )}
 
       {/* Upload Form Container within the Card */}
-      <div className="border-t border-border pt-4 space-y-4">
-        <div>
-          <h4 className="text-sm font-semibold text-foreground">
-            Upload a report
-          </h4>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Attach spectrometer test certificate PDF for sample tracking and chemical verification.
-          </p>
-        </div>
+      {uploadOpen && (
+        <div className="border-t border-border pt-4 space-y-4">
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">
+              Upload a report
+            </h4>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Attach spectrometer test certificate PDF for sample tracking and chemical verification.
+            </p>
+          </div>
 
-        <form onSubmit={handleUpload} className="space-y-4">
-          {/* 2 & 3. 4-column responsive grid with h-10 controls and labels directly above */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            {/* Field 1: Sample number */}
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="upload-sample-no"
-                className="text-xs font-semibold text-muted-foreground"
-              >
-                Sample number
-              </label>
-              <input
-                id="upload-sample-no"
-                type="text"
-                maxLength={50}
-                value={sampleNo}
-                placeholder="e.g. S-2026-001"
-                aria-label="Sample number"
-                onChange={(event) => setSampleNo(event.target.value)}
-                className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              />
-            </div>
-
-            {/* Field 2: Custom PDF File Upload (4. Accessible label-styled trigger) */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-muted-foreground">
-                PDF file
-              </span>
-              <label
-                htmlFor="upload-pdf-file"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    fileInput.current?.click()
-                  }
-                }}
-                className="flex h-10 w-full cursor-pointer items-center justify-between rounded-input border border-dashed border-border bg-card px-3 text-sm text-foreground transition-colors hover:border-primary hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <span className="truncate pr-2 text-muted-foreground font-normal">
-                  {file ? file.name : 'Choose PDF...'}
-                </span>
-                <Upload className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <form onSubmit={handleUpload} className="space-y-4">
+            {/* 2 & 3. 4-column responsive grid with h-10 controls and labels directly above */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              {/* Field 1: Sample number */}
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="upload-sample-no"
+                  className="text-xs font-semibold text-muted-foreground"
+                >
+                  Sample number
+                </label>
                 <input
-                  id="upload-pdf-file"
-                  ref={fileInput}
-                  type="file"
-                  aria-label="PDF file"
-                  accept="application/pdf,.pdf"
-                  onChange={(event) =>
-                    setFile(event.target.files?.[0] ?? null)
-                  }
-                  className="sr-only"
+                  id="upload-sample-no"
+                  type="text"
+                  maxLength={50}
+                  value={sampleNo}
+                  placeholder="e.g. S-2026-001"
+                  aria-label="Sample number"
+                  onChange={(event) => setSampleNo(event.target.value)}
+                  className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 />
-              </label>
+              </div>
+
+              {/* Field 2: Custom PDF File Upload (4. Accessible label-styled trigger) */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  PDF file
+                </span>
+                <label
+                  htmlFor="upload-pdf-file"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      fileInput.current?.click()
+                    }
+                  }}
+                  className="flex h-10 w-full cursor-pointer items-center justify-between rounded-input border border-dashed border-border bg-card px-3 text-sm text-foreground transition-colors hover:border-primary hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <span className="truncate pr-2 text-muted-foreground font-normal">
+                    {file ? file.name : 'Choose PDF...'}
+                  </span>
+                  <Upload className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <input
+                    id="upload-pdf-file"
+                    ref={fileInput}
+                    type="file"
+                    aria-label="PDF file"
+                    accept="application/pdf,.pdf"
+                    onChange={(event) =>
+                      setFile(event.target.files?.[0] ?? null)
+                    }
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+
+              {/* Field 3: Result */}
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="upload-result"
+                  className="text-xs font-semibold text-muted-foreground"
+                >
+                  Result
+                </label>
+                <Select
+                  id="upload-result"
+                  label="Result"
+                  value={result}
+                  options={[
+                    { value: 'PENDING', label: 'Pending' },
+                    { value: 'PASS', label: 'Pass' },
+                    { value: 'FAIL', label: 'Fail' },
+                  ]}
+                  onChange={(value) => setResult(value as ReportResult)}
+                />
+              </div>
+
+              {/* Field 4: Notes (Single-line input, h-10) */}
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="upload-notes"
+                  className="text-xs font-semibold text-muted-foreground"
+                >
+                  Notes
+                </label>
+                <input
+                  id="upload-notes"
+                  type="text"
+                  value={notes}
+                  placeholder="Optional notes"
+                  aria-label="Notes"
+                  onChange={(event) => setNotes(event.target.value)}
+                  className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                />
+              </div>
             </div>
 
-            {/* Field 3: Result */}
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="upload-result"
-                className="text-xs font-semibold text-muted-foreground"
+            {/* 5. Right-aligned primary amber button in form footer */}
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={uploading}
+                className="inline-flex h-10 items-center justify-center rounded-input bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Result
-              </label>
-              <Select
-                id="upload-result"
-                label="Result"
-                value={result}
-                options={[
-                  { value: 'PENDING', label: 'Pending' },
-                  { value: 'PASS', label: 'Pass' },
-                  { value: 'FAIL', label: 'Fail' },
-                ]}
-                onChange={(value) => setResult(value as ReportResult)}
-              />
+                {uploading ? 'Uploading...' : 'Upload report'}
+              </button>
             </div>
-
-            {/* Field 4: Notes (Single-line input, h-10) */}
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="upload-notes"
-                className="text-xs font-semibold text-muted-foreground"
-              >
-                Notes
-              </label>
-              <input
-                id="upload-notes"
-                type="text"
-                value={notes}
-                placeholder="Optional notes"
-                aria-label="Notes"
-                onChange={(event) => setNotes(event.target.value)}
-                className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              />
-            </div>
-          </div>
-
-          {/* 5. Right-aligned primary amber button in form footer */}
-          <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              disabled={uploading}
-              className="inline-flex h-10 items-center justify-center rounded-input bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {uploading ? 'Uploading...' : 'Upload report'}
-            </button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }
