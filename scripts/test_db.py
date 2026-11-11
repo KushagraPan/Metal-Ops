@@ -9,21 +9,41 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
+from typing import Any
+
+from sqlalchemy.engine import make_url
 
 CONTAINER_NAME = "metalops-test-postgres"
 IMAGE = "postgres:16-alpine"
-PORT = 5433
-USER = "metalops_test"
-PASSWORD = "metalops_test"
-DB = "metalops_test"
-HOST = "127.0.0.1"
+DEFAULT_PORT = 5433
+DEFAULT_USER = "metalops_test"
+DEFAULT_PASSWORD = "metalops_test"
+DEFAULT_DB = "metalops_test"
+DEFAULT_HOST = "127.0.0.1"
 
-TEST_DATABASE_URL = (
-    f"postgresql+psycopg://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}"
+DEFAULT_TEST_DATABASE_URL = (
+    f"postgresql+psycopg://{DEFAULT_USER}:{DEFAULT_PASSWORD}@{DEFAULT_HOST}:{DEFAULT_PORT}/{DEFAULT_DB}"
 )
+
+
+def get_test_database_url() -> str:
+    return os.getenv("TEST_DATABASE_URL") or DEFAULT_TEST_DATABASE_URL
+
+
+def parse_db_url(url: str | None = None) -> dict[str, Any]:
+    resolved = url or get_test_database_url()
+    u = make_url(resolved)
+    return {
+        "host": u.host or DEFAULT_HOST,
+        "port": u.port or 5432,
+        "user": u.username or DEFAULT_USER,
+        "password": u.password or DEFAULT_PASSWORD,
+        "database": u.database or DEFAULT_DB,
+    }
 
 
 def run_cmd(args: list[str], check: bool = False) -> subprocess.CompletedProcess[str]:
@@ -51,18 +71,19 @@ def is_container_present() -> bool:
     return res.returncode == 0 and bool(res.stdout.strip())
 
 
-def wait_for_postgres(timeout_seconds: int = 20) -> bool:
+def wait_for_postgres(timeout_seconds: int = 20, url: str | None = None) -> bool:
+    config = parse_db_url(url)
     start = time.time()
     while time.time() - start < timeout_seconds:
         try:
             import psycopg
 
             conn = psycopg.connect(
-                host=HOST,
-                port=PORT,
-                user=USER,
-                password=PASSWORD,
-                dbname=DB,
+                host=config["host"],
+                port=config["port"],
+                user=config["user"],
+                password=config["password"],
+                dbname=config["database"],
                 connect_timeout=2,
             )
             conn.close()
@@ -79,9 +100,16 @@ def cmd_up() -> None:
         )
         sys.exit(1)
 
+    config = parse_db_url()
+    host = config["host"]
+    port = config["port"]
+    user = config["user"]
+    password = config["password"]
+    database = config["database"]
+
     if is_container_running():
         if wait_for_postgres(timeout_seconds=5):
-            print(f"Container '{CONTAINER_NAME}' is already running and ready at {HOST}:{PORT}.")
+            print(f"Container '{CONTAINER_NAME}' is already running and ready at {host}:{port}.")
             return
 
     if is_container_present():
@@ -94,13 +122,13 @@ def cmd_up() -> None:
             "--name",
             CONTAINER_NAME,
             "-e",
-            f"POSTGRES_USER={USER}",
+            f"POSTGRES_USER={user}",
             "-e",
-            f"POSTGRES_PASSWORD={PASSWORD}",
+            f"POSTGRES_PASSWORD={password}",
             "-e",
-            f"POSTGRES_DB={DB}",
+            f"POSTGRES_DB={database}",
             "-p",
-            f"{HOST}:{PORT}:5432",
+            f"{host}:{port}:5432",
             IMAGE,
         ]
         res = run_cmd(cmd)
@@ -114,7 +142,7 @@ def cmd_up() -> None:
         )
         sys.exit(1)
 
-    print(f"PostgreSQL test database ready at {TEST_DATABASE_URL}")
+    print(f"PostgreSQL test database ready at {get_test_database_url()}")
 
 
 def cmd_down() -> None:
@@ -127,13 +155,16 @@ def cmd_down() -> None:
 
 
 def cmd_check() -> None:
+    config = parse_db_url()
+    host = config["host"]
+    port = config["port"]
     if not wait_for_postgres(timeout_seconds=3):
         sys.stderr.write(
-            f"PostgreSQL test database or Docker is unavailable at {HOST}:{PORT}. "
+            f"PostgreSQL test database or Docker is unavailable at {host}:{port}. "
             "Start it with 'make test-db-up' or check Docker.\n"
         )
         sys.exit(1)
-    print(f"PostgreSQL test database is available at {TEST_DATABASE_URL}")
+    print(f"PostgreSQL test database is available at {get_test_database_url()}")
 
 
 def main() -> None:
@@ -148,7 +179,7 @@ def main() -> None:
     elif command == "check":
         cmd_check()
     elif command == "url":
-        print(TEST_DATABASE_URL)
+        print(get_test_database_url())
     else:
         sys.stderr.write(f"Unknown command: {command}\n")
         sys.exit(1)
@@ -156,4 +187,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

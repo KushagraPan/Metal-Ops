@@ -37,6 +37,7 @@ def upgrade() -> None:
         )
 
 
+# Downgrade fails if any sample_no is not numeric.
 def downgrade() -> None:
     # The old schema only stored numeric sample numbers. Downgrading a report
     # whose sample number contains letters requires a manual data decision.
