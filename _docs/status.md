@@ -28,13 +28,9 @@ Last updated: Issue #12 implementation (Integration tests against a real databas
   - Custom accessible Select dropdown, responsive layout (mobile 375 px and desktop), dark/light themes, Indian currency formatting (`en-IN`).
 - **[#11] Authentication** (Closed)
   - Session cookie auth, scrypt password hashing, owner bootstrap, route protection, login/logout UI.
-
----
-
-## 2. Current Implementation: Issue #12
-
-- **[#12] Integration tests against a real database** (Implemented; stopped for review)
+- **[#12] Integration tests against a real database** (Closed)
   - **PostgreSQL test container:** Pinned `postgres:16-alpine` (PostgreSQL 16.15) on port `5433` via `make test-db-up` / `make test-db-down`.
+  - **Configurable `TEST_DATABASE_URL`:** Parses host, port, user, password, and db (supports CI and Docker Compose), with clear failure message printing host and port.
   - **No silent skips:** `make test` and integration test fixtures fail fast with clear actionable error messages if Docker or PostgreSQL is unavailable.
   - **Spec Acceptance Scenarios (quoted from `product-spec.md`):**
     - *Scenario 1 (Profit):* Worked example in Section 5 verified through the API (yield 89.0%, profit ₹3,160.00 ex-GST, switches to ₹5,160.00 under `WE_PAY_BILL`).
@@ -54,7 +50,7 @@ Last updated: Issue #12 implementation (Integration tests against a real databas
 
 ---
 
-## 3. Deferred Items
+## 2. Deferred Items
 
 - **Persistent Multi-Worker Sessions (Deferred from #11 to #13):**
   - Session store is currently in-memory. Distributed session persistence (Redis or DB session table) to support multi-worker backend topology in production Compose stack.
@@ -68,7 +64,7 @@ Last updated: Issue #12 implementation (Integration tests against a real databas
 
 ---
 
-## 4. What is Next
+## 3. What is Next
 
 - **#13 [P0] Docker Compose for the full system**
   - Dockerfiles for backend and frontend.
@@ -78,7 +74,7 @@ Last updated: Issue #12 implementation (Integration tests against a real databas
 
 ---
 
-## 5. How to Run Everything
+## 4. How to Run Everything
 
 ### Development Mode (Local SQLite)
 ```bash
