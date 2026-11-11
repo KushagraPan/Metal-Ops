@@ -37,6 +37,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Run Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check exact version pins
         run: python scripts/check_pins.py
 
@@ -48,11 +53,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pip-audit
           pip-audit -r requirements.txt
-
-      - name: Run Gitleaks secret scan
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   backend:
     name: Backend Tests
