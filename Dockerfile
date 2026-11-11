@@ -1,5 +1,5 @@
 # Pinned Python base image
-FROM python:3.11.9-slim-bookworm
+FROM python:3.11.12-slim-bookworm
 
 # Prevent Python from writing .pyc files and buffer output
 ENV PYTHONUNBUFFERED=1 \

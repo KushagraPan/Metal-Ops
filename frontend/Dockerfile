@@ -12,7 +12,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production web server with pinned Nginx image
-FROM nginx:1.27.4-alpine
+FROM nginx:1.27.5-alpine
 
 # Copy built SPA artifacts
 COPY --from=builder /app/dist /usr/share/nginx/html

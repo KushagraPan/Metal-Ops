@@ -1,512 +1,290 @@
 # Trivy ignore file for MetalOps Lite container image scanning.
-# Each entry documents an upstream CVE inherited from pinned base images
-# (python:3.11.9-slim-bookworm or nginx:1.27.4-alpine).
-# All ignored entries carry an explicit reason and an expiry date.
+# Only entries where NO upstream vendor fix exists are retained.
+# Expiry dates are set within 90 days (2027-02-09).
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2023-31484
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: zlib1g
+# Severity: CRITICAL
+# Fixed Version: None (will_not_fix)
+# Reason: Upstream OS package vulnerability in base image; no fix available
+# Expiry: 2027-02-09
 CVE-2023-45853
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2023-52425
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2023-7104
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2024-28757
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2024-45490
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2024-45491
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2024-45492
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2024-55549
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2024-56171
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2024-56406
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2024-6345
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-15467
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: libxslt
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2025-24855
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: libxml2
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2025-24928
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-27113
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-31115
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-32414
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: libxml2
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2025-32415
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-32988
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-32990
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-47273
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-49794
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: libxml2
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2025-49795
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: libxml2
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2025-49796
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-59375
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-6020
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-62727
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-64720
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-65018
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-66293
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-68973
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-69421
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2025-6965
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: libncursesw6 / ncurses-bin
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2025-69720
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: libsqlite3-0
+# Severity: CRITICAL
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2025-7458
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-103111
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-107364
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-107891
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-109518
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-111497
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112315
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112316
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112317
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112318
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112319
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112320
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112321
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112322
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-112323
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-113351
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-115506
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-117610
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-11822
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-11824
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-118370
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-118380
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-119079
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-119373
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-119374
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-119379
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-13221
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-16742
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-22184
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-22695
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-22801
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-24049
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-24486
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-25210
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-25646
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-27135
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-28387
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-28388
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-28389
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-28390
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-31789
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-33630
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-33845
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-33846
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-3833
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-40200
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-40355
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-40356
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-41992
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-42009
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-42010
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-42496
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-42497
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-42561
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-45186
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-45447
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-4775
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-4878
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-48818
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-48962
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-53539
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-53613
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-53615
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-54283
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-54369
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-57432
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-57433
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-5773
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-6276
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-66046
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-6732
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-71199
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-71200
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-76641
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-76844
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-76956
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-76957
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-77214
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-78410
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-8286
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-8376
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-84782
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-85091
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-86145
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-87636
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-89157
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-89161
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-8927
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-92392
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
-CVE-2026-93990
-
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: perl-base
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2026-9538
 
-# Reason: Upstream OS/library package vulnerability in pinned base image; awaiting upstream vendor release
-# Expiry: 2027-11-11
+# Package: libxslt
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
 CVE-2026-9947
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-11822
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-11824
+
+# Package: libsystemd0 / libudev1
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-16742
+
+# Package: gzip
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-41992
+
+# Package: bsdutils / util-linux
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-53613
+
+# Package: bsdutils / util-linux
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-53615
+
+# Package: libacl1
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-54369
+
+# Package: libgssapi-krb5-2 / libk5crypto3 / libkrb5-3
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-71199
+
+# Package: libgssapi-krb5-2 / libk5crypto3 / libkrb5-3
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-71200
+
+# Package: zlib1g
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-76844
+
+# Package: bsdutils / util-linux
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-78410
+
+# Package: zlib1g / zlib
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian/Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-85091
+
+# Package: libgssapi-krb5-2 / libk5crypto3 / libkrb5-3
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-107364
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112315
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112316
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112317
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112318
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112319
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112320
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112321
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112322
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112323
+
+# Package: libexpat1
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-113351
+
+# Package: libexpat1
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-115506
+
+# Package: libexpat1
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-117610
+
+# Package: libexpat1
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-118370
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-118380
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-119079
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-119373
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-119374
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-119379
