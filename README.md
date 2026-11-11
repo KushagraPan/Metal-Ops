@@ -83,7 +83,63 @@ Prerequisites: Python 3.11+, Node 20+ and GNU Make. The first run creates `.venv
 | `make migrate` | Apply Alembic migrations to `DATABASE_URL` (SQLite by default) | now |
 | `make seed` | Apply migrations, then load fictional demo data | now |
 | `make reset-db` | Delete the local SQLite dev database, migrate and reseed | now |
-| `docker compose up` | Frontend, API, PostgreSQL and the observability stack | issue #13 |
+| `docker compose up --build` | Full stack: PostgreSQL, FastAPI backend, Nginx SPA frontend | now |
+| `make stack-up` | Start Docker Compose stack with test port published | now |
+| `make stack-test` | Run integration test suite against running Compose stack | now |
+| `make stack-persistence` | Verify report file persistence across stack restart | now |
+| `make stack-down` | Stop and tear down the Compose stack | now |
+
+## Running with Docker Compose
+
+To run the complete production-ready stack (PostgreSQL database, FastAPI backend, and Nginx reverse proxy serving the React single-page application):
+
+### Quick Start (Clone to Login)
+
+1. **Configure Environment:**
+   ```bash
+   cp .env.example .env
+   ```
+   Inspect `.env` and set `OWNER_PASSWORD` (minimum 10 characters). For demo purposes:
+   - **Login Email:** `owner@workshop.local` (or value in `OWNER_EMAIL`)
+   - **Login Password:** `change_this_demo_password_10chars` (or value in `OWNER_PASSWORD`)
+   - `SEED_DEMO=1` automatically provisions demo purchase lots, furnace heats, sales, fixed expenses, and sample reports.
+
+2. **Start the Stack:**
+   ```bash
+   docker compose up --build
+   ```
+   Or run detached in the background:
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. **Access the Application:**
+   Open your browser at [http://127.0.0.1:3000](http://127.0.0.1:3000) and log in with your credentials.
+
+### Volume Persistence & Data Retention
+
+- `docker compose down`
+  Stops and removes the containers and network, but **preserves all database records and uploaded PDF reports** in named Docker volumes (`metalops_postgres_data` and `metalops_uploads`).
+- `docker compose down -v`
+  Stops the containers and **permanently deletes** the named volumes, resetting the database and uploaded storage to an empty state.
+
+### Testing the Running Stack
+
+You can verify the running Docker Compose stack and test report persistence using the dedicated Makefile targets:
+
+```bash
+# 1. Start the stack with PostgreSQL published on port 5434 for testing
+make stack-up
+
+# 2. Run the integration test suite against the running stack
+make stack-test
+
+# 3. Verify upload persistence across a full container restart (down then up)
+make stack-persistence
+
+# 4. Tear down the test stack
+make stack-down
+```
 
 ## Documentation
 
