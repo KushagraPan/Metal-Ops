@@ -31,6 +31,7 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 - **[#12] Integration tests against a real database** (Closed)
   - PostgreSQL test container (`postgres:16-alpine`), configurable `TEST_DATABASE_URL`, concurrency race protection (`FOR UPDATE`), full spec acceptance scenarios, Alembic migrations chain.
 - **[#13] Docker Compose for the full system** (Closed)
+  - Pinned base images, non-root user, single backend worker, secure cookies, origin check, named volumes.
 - **[#14] CI: tests on every pull request** (Implemented — Pending Human Review)
   - GitHub Actions workflow (`.github/workflows/ci.yml`) triggering on `pull_request` and `push` to `main`.
   - Top-level `permissions: contents: read` only; concurrency group cancels superseded runs.
@@ -57,8 +58,12 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 
 ## 3. What is Next
 
+<<<<<<< HEAD
 - **Human Review of Issue #14 PR**
 - Next issue in sequence: **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
+=======
+- Next issue in sequence: **#14 [P0] CI: tests on every pull request**
+>>>>>>> origin/main
 
 ---
 
