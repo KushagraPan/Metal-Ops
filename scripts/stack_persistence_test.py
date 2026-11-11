@@ -18,9 +18,11 @@ import subprocess
 import sys
 import time
 import uuid
+from pathlib import Path
 
 import httpx
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import app.env  # noqa: F401
 
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:3000")
