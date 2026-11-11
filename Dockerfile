@@ -1,5 +1,5 @@
 # Pinned Python base image
-FROM python:3.11.9-slim-bookworm
+FROM python:3.11.18-slim-bookworm
 
 # Prevent Python from writing .pyc files and buffer output
 ENV PYTHONUNBUFFERED=1 \
@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED=1 \
     STORAGE_DIR=/app/storage
 
 # Install system dependencies (including tzdata for timezone configuration)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     tzdata \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -21,8 +21,10 @@ WORKDIR /app
 
 # Install Python dependencies first for layer caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    rm -rf /usr/local/lib/python3.11/ensurepip && \
+    find /usr/local -name "*bom.cdx.json*" -delete
 
 # Copy application code, migrations, seed data, and scripts
 COPY app/ ./app/

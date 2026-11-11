@@ -1,0 +1,290 @@
+# Trivy ignore file for MetalOps Lite container image scanning.
+# Only entries where NO upstream vendor fix exists are retained.
+# Expiry dates are set within 90 days (2027-02-09).
+
+# Package: zlib1g
+# Severity: CRITICAL
+# Fixed Version: None (will_not_fix)
+# Reason: Upstream OS package vulnerability in base image; no fix available
+# Expiry: 2027-02-09
+CVE-2023-45853
+
+# Package: libxslt
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2025-24855
+
+# Package: libxml2
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2025-24928
+
+# Package: libxml2
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2025-32415
+
+# Package: libxml2
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2025-49795
+
+# Package: libxml2
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2025-49796
+
+# Package: libncursesw6 / ncurses-bin
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2025-69720
+
+# Package: libsqlite3-0
+# Severity: CRITICAL
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2025-7458
+
+# Package: perl-base
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-9538
+
+# Package: libxslt
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-9947
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-11822
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-11824
+
+# Package: libsystemd0 / libudev1
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-16742
+
+# Package: gzip
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-41992
+
+# Package: bsdutils / util-linux
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-53613
+
+# Package: bsdutils / util-linux
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-53615
+
+# Package: libacl1
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-54369
+
+# Package: libgssapi-krb5-2 / libk5crypto3 / libkrb5-3
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-71199
+
+# Package: libgssapi-krb5-2 / libk5crypto3 / libkrb5-3
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-71200
+
+# Package: zlib1g
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-76844
+
+# Package: bsdutils / util-linux
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-78410
+
+# Package: zlib1g / zlib
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian/Alpine package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-85091
+
+# Package: libgssapi-krb5-2 / libk5crypto3 / libkrb5-3
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-107364
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112315
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112316
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112317
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112318
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112319
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112320
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112321
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112322
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-112323
+
+# Package: libexpat1
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-113351
+
+# Package: libexpat1
+# Severity: HIGH
+# Fixed Version: None (fix_deferred)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-115506
+
+# Package: libexpat1
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-117610
+
+# Package: libexpat1
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-118370
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-118380
+
+# Package: krb5
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-119079
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-119373
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-119374
+
+# Package: libsqlite3-0
+# Severity: HIGH
+# Fixed Version: None (affected)
+# Reason: Upstream Debian package vulnerability; no fix available
+# Expiry: 2027-02-09
+CVE-2026-119379

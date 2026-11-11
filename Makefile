@@ -13,12 +13,13 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev test test-unit test-db-up test-db-down typecheck clean migrate seed reset-db stack-up stack-down stack-test stack-persistence
+.PHONY: help install dev test test-unit test-integration test-db-up test-db-down typecheck clean migrate seed reset-db stack-up stack-down stack-test stack-persistence
 
 help:
 	@echo make dev               API on http://127.0.0.1:8000 and frontend on http://127.0.0.1:5173
 	@echo make test              unit + integration tests, Vitest and TypeScript check
 	@echo make test-unit         pytest unit tests only
+	@echo make test-integration  pytest integration tests only
 	@echo make test-db-up        start PostgreSQL test container
 	@echo make test-db-down      stop and remove PostgreSQL test container
 	@echo make stack-up          start Docker Compose stack with test port published
@@ -75,6 +76,10 @@ stack-persistence: install
 
 test-unit: install
 	$(VENV_PY) -m pytest tests/unit
+
+test-integration: install
+	$(VENV_PY) scripts/test_db.py check
+	$(VENV_PY) -m pytest tests/integration
 
 test: install
 	$(VENV_PY) scripts/test_db.py check

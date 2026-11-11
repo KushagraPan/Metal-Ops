@@ -98,7 +98,10 @@ def test_docs_disabled_in_production():
 
 
 # 3. Origin Check Middleware Tests
-def test_origin_check_allows_matching_host():
+@patch("app.routers.auth.AuthService")
+def test_origin_check_allows_matching_host(mock_auth):
+    from fastapi import HTTPException
+    mock_auth.return_value.authenticate.side_effect = HTTPException(status_code=401, detail="Invalid credentials")
     app = create_app()
     client = TestClient(app)
     response = client.post(
@@ -110,7 +113,10 @@ def test_origin_check_allows_matching_host():
     assert response.status_code in {401, 422}
 
 
-def test_origin_check_allows_absent_origin_for_non_browser():
+@patch("app.routers.auth.AuthService")
+def test_origin_check_allows_absent_origin_for_non_browser(mock_auth):
+    from fastapi import HTTPException
+    mock_auth.return_value.authenticate.side_effect = HTTPException(status_code=401, detail="Invalid credentials")
     app = create_app()
     client = TestClient(app)
     response = client.post(
@@ -144,7 +150,10 @@ def test_origin_check_allows_get_even_with_cross_origin():
     assert response.status_code == 200
 
 
-def test_origin_check_allowed_origins_env_override():
+@patch("app.routers.auth.AuthService")
+def test_origin_check_allowed_origins_env_override(mock_auth):
+    from fastapi import HTTPException
+    mock_auth.return_value.authenticate.side_effect = HTTPException(status_code=401, detail="Invalid credentials")
     with patch.dict(os.environ, {"ALLOWED_ORIGINS": "https://trusted-site.com, https://app.metalops.local"}):
         app = create_app()
         client = TestClient(app)

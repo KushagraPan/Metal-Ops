@@ -31,38 +31,21 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 - **[#12] Integration tests against a real database** (Closed)
   - PostgreSQL test container (`postgres:16-alpine`), configurable `TEST_DATABASE_URL`, concurrency race protection (`FOR UPDATE`), full spec acceptance scenarios, Alembic migrations chain.
 - **[#13] Docker Compose for the full system** (Closed)
-  - **Pinned Base Images:**
-    - Backend: `python:3.11.9-slim-bookworm` (digest `sha256:8fb099199b9f2d70342674bd9dbccd3ed03a258f26bbd1d556822c6dfc60c317`)
-    - Frontend Builder: `node:22.14.0-alpine3.21` (digest `sha256:9bef0ef1e268f60627da9ba7d7605e8831d5b56ad07487d24d1aa386336d1944`)
-    - Frontend Web Server: `nginx:1.27.4-alpine` (digest `sha256:4ff102c5d78d254a6f0da062b3cf39eaf07f01eec0927fd21e219d0af8bc0591`)
-    - Database: `postgres:16-alpine` (digest `sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139`)
-  - **Hardened Architecture & Security:**
-    - Non-root user in containers (`metalops:1000` in backend, `nginx:nginx` in frontend).
-    - `.dockerignore` for backend and frontend preventing image bloat and secret leakage.
-    - Single backend worker (`--workers 1`) documented for in-memory session store.
-    - Cookie flags: `HttpOnly`, `SameSite=Lax`, and `Secure` flag dynamically enforced when `X-Forwarded-Proto: https` is received.
-    - Origin verification middleware for state-changing HTTP requests (`POST`, `PUT`, `DELETE`, `PATCH`): mismatching `Origin` returns 403 Forbidden; absent `Origin` allowed for non-browser clients.
-    - Documentation endpoints (`/docs`, `/redoc`, `/openapi.json`) gated to `ENV=development` only (disabled in `production`).
-    - Pure Python `.env` loader (`app/env.py`) ensuring environment variables are populated prior to database and storage initialization.
-    - Default dashboard month computed using Indian Standard Time (`Asia/Kolkata`) via standard library `zoneinfo` / `TZ`.
-  - **Networking & Storage:**
-    - Frontend Nginx serves SPA static bundle and reverse-proxies `/api` to backend (`http://backend:8000`), presenting a single origin to browsers.
-    - Published ports bound strictly to `127.0.0.1:3000` (or `${FRONTEND_PORT}`).
-    - Postgres is unexposed in production `compose.yaml` (reachable only on internal network `metalops_network`).
-    - Named volumes `metalops_postgres_data` and `metalops_uploads` persist database and uploaded PDF reports.
-  - **Automated Startup & Seeding:**
-    - Backend entrypoint script (`scripts/entrypoint.sh`) polls Postgres until ready, applies Alembic migrations, runs demo seeding when `SEED_DEMO=1`, and boots Uvicorn.
-    - Health checks configured on all three services (`postgres`, `backend`, `frontend`).
-  - **Stack Integration & Persistence Suite:**
-    - `compose.test.yaml` publishing Postgres to `127.0.0.1:5434` for test harness execution without port collision.
-    - `make stack-persistence`: script (`scripts/stack_persistence_test.py`) that uploads a report, tears down stack with `docker compose down`, boots stack with `docker compose up -d --wait`, downloads report, and verifies identical byte length and SHA-256 checksum.
-    - `make stack-test`: runs integration test suite against the live Compose stack via `BASE_URL=http://127.0.0.1:3000` and `TEST_DATABASE_URL=...:5434`.
+  - Pinned base images, non-root user, single backend worker, secure cookies, origin check, named volumes.
+- **[#14] CI: tests on every pull request** (Implemented — Pending Human Review)
+  - GitHub Actions workflow (`.github/workflows/ci.yml`) triggering on `pull_request` and `push` to `main`.
+  - Top-level `permissions: contents: read` only; concurrency group cancels superseded runs.
+  - Pinned actions to full SHAs with version comments (checkout, setup-python, setup-node, gitleaks, trivy).
+  - Parallel jobs: `supply-chain` (gitleaks, check_pins.py, npm audit, pip-audit), `backend` (Postgres 16.15 service container, make migrate, unit tests, integration tests), `frontend` (unit tests, typecheck, build), `docker` (backend & frontend image build + Trivy scan with `.trivyignore`), and aggregate `ci` gate job.
+  - Pinned base images bumped to latest patch: `python:3.11.18-slim-bookworm`, `node:22.23.4-alpine3.24`, `nginx:1.27.5-alpine`, `postgres:16.15-alpine`.
+  - Upgraded vulnerable dependencies: `python-multipart==0.0.31`, `pytest==9.0.3`, `fastapi==0.162.4`, `starlette==1.3.1`.
+  - `.trivyignore` pruned to retain only zero-fix upstream CVEs with documented package, severity, reason, and 90-day expiry.
+  - Removed pip internal build-time CycloneDX SBOM and ensurepip to eliminate phantom setuptools findings in container scanning.
 
 ---
 
 ## 2. Deferred Items & Backlog
 
-- **#14 [P0] CI: tests on every pull request**
 - **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
 - **#16 [P0] Observability for the key journey** (OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana)
 - **#17 [P0] Alert on user impact**
@@ -76,7 +59,8 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 
 ## 3. What is Next
 
-- Next issue in sequence: **#14 [P0] CI: tests on every pull request**
+- **Human Review of Issue #14 PR**
+- Next issue in sequence: **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
 
 ---
 
