@@ -55,6 +55,13 @@ async function responseMessage(response: Response): Promise<string> {
   return `Request failed with status ${response.status}`
 }
 
+export type UnauthorizedHandler = () => void
+let onUnauthorizedHandler: UnauthorizedHandler | null = null
+
+export function setOnUnauthorized(handler: UnauthorizedHandler | null): void {
+  onUnauthorizedHandler = handler
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!headers.has('Accept')) {
@@ -68,6 +75,13 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
 
   if (!response.ok) {
+    if (response.status === 401 && onUnauthorizedHandler) {
+      try {
+        onUnauthorizedHandler()
+      } catch {
+        // Prevent handler errors from masking ApiError
+      }
+    }
     throw new ApiError(response.status, await responseMessage(response))
   }
 

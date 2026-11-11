@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { api, apiUrl } from './client'
+import { api, apiUrl, setOnUnauthorized } from './client'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -49,5 +49,23 @@ describe('api client', () => {
     expect(url.searchParams.get('alloy')).toBe('ADC12')
     expect(url.searchParams.get('report_result')).toBe('PASS')
     expect(url.searchParams.get('heat_no')).toBe('H-1')
+  })
+
+  it('triggers setOnUnauthorized callback when receiving a 401 response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Authentication required.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const onUnauthorized = vi.fn()
+    setOnUnauthorized(onUnauthorized)
+
+    await expect(api.auth.me()).rejects.toThrow('Authentication required.')
+    expect(onUnauthorized).toHaveBeenCalledOnce()
+
+    setOnUnauthorized(null)
   })
 })

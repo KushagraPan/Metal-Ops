@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.db import get_session
 from app.models.user import User
 from app.schemas.auth import LoginInput, UserRead
-from app.services.auth import AuthService, InvalidCredentials
+from app.services.auth import AuthService, InvalidCredentials, login_rate_limiter
 
 SESSION_COOKIE_NAME = "session"
 
@@ -52,25 +52,43 @@ CurrentUser = Annotated[User, Depends(require_session)]
 @public_router.post("/login", response_model=UserRead)
 def login(
     payload: LoginInput,
+    request: Request,
     response: Response,
     session: SessionDep,
 ) -> UserRead:
+    rate_key = payload.email.strip().lower()
+    if login_rate_limiter.is_rate_limited(rate_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts. Please try again later.",
+        )
+
     try:
         user, session_id = AuthService(session).authenticate(
             email=payload.email,
             password=payload.password,
         )
     except InvalidCredentials:
+        login_rate_limiter.record_failure(rate_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
         )
+
+    login_rate_limiter.reset(rate_key)
+
+    # Cookie flags: HttpOnly, SameSite=Lax, Secure when served over HTTPS (documented for #13)
+    is_secure = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto", "").lower() == "https"
+    )
 
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=session_id,
         httponly=True,
         samesite="lax",
+        secure=is_secure,
         path="/",
     )
     return UserRead.model_validate(user)

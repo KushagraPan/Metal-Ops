@@ -6,10 +6,25 @@ import hashlib
 import hmac
 import os
 import secrets
+import time
+from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.repositories.users import UserRepository
+
+# Session timeout limits (documented):
+# - IDLE_TIMEOUT_SECONDS: Revoked after 30 minutes (1,800s) of inactivity.
+# - ABSOLUTE_TIMEOUT_SECONDS: Revoked after 12 hours (43,200s) maximum lifetime regardless of activity.
+DEFAULT_IDLE_TIMEOUT_SECONDS: float = 1800.0
+DEFAULT_ABSOLUTE_TIMEOUT_SECONDS: float = 43200.0
+
+
+@dataclass
+class SessionData:
+    user_id: int
+    created_at: float
+    last_accessed_at: float
 
 
 def hash_password(password: str) -> str:
@@ -43,20 +58,54 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 class SessionStore:
-    """In-memory server session store mapping opaque tokens to user IDs."""
+    """In-memory server session store with idle and absolute expiry limits."""
 
-    def __init__(self) -> None:
-        self._sessions: dict[str, int] = {}
+    def __init__(
+        self,
+        idle_timeout: float = DEFAULT_IDLE_TIMEOUT_SECONDS,
+        absolute_timeout: float = DEFAULT_ABSOLUTE_TIMEOUT_SECONDS,
+    ) -> None:
+        self.idle_timeout = idle_timeout
+        self.absolute_timeout = absolute_timeout
+        self._sessions: dict[str, SessionData] = {}
 
-    def create(self, user_id: int) -> str:
+    def create(self, user_id: int, now: float | None = None) -> str:
+        current_time = now if now is not None else time.time()
         session_id = secrets.token_urlsafe(32)
-        self._sessions[session_id] = user_id
+        self._sessions[session_id] = SessionData(
+            user_id=user_id,
+            created_at=current_time,
+            last_accessed_at=current_time,
+        )
         return session_id
 
-    def get_user_id(self, session_id: str | None) -> int | None:
+    def get_session_data(self, session_id: str | None) -> SessionData | None:
         if not session_id:
             return None
         return self._sessions.get(session_id)
+
+    def get_user_id(self, session_id: str | None, now: float | None = None) -> int | None:
+        if not session_id:
+            return None
+        data = self._sessions.get(session_id)
+        if data is None:
+            return None
+
+        current_time = now if now is not None else time.time()
+
+        # Check absolute timeout limit (12 hours)
+        if current_time - data.created_at > self.absolute_timeout:
+            self.invalidate(session_id)
+            return None
+
+        # Check idle timeout limit (30 minutes)
+        if current_time - data.last_accessed_at > self.idle_timeout:
+            self.invalidate(session_id)
+            return None
+
+        # Update last accessed time
+        data.last_accessed_at = current_time
+        return data.user_id
 
     def invalidate(self, session_id: str | None) -> None:
         if session_id:
@@ -69,23 +118,65 @@ class SessionStore:
 session_store = SessionStore()
 
 
+class LoginRateLimiter:
+    """Tracks failed login attempts and rate limits repeated failures."""
+
+    def __init__(self, max_attempts: int = 5, window_seconds: float = 300.0) -> None:
+        self.max_attempts = max_attempts
+        self.window_seconds = window_seconds
+        self._failures: dict[str, list[float]] = {}
+
+    def is_rate_limited(self, key: str, now: float | None = None) -> bool:
+        current_time = now if now is not None else time.time()
+        attempts = self._get_recent_attempts(key, current_time)
+        return len(attempts) >= self.max_attempts
+
+    def record_failure(self, key: str, now: float | None = None) -> None:
+        current_time = now if now is not None else time.time()
+        attempts = self._get_recent_attempts(key, current_time)
+        attempts.append(current_time)
+        self._failures[key] = attempts
+
+    def reset(self, key: str) -> None:
+        self._failures.pop(key, None)
+
+    def clear(self) -> None:
+        self._failures.clear()
+
+    def _get_recent_attempts(self, key: str, current_time: float) -> list[float]:
+        cutoff = current_time - self.window_seconds
+        return [t for t in self._failures.get(key, []) if t > cutoff]
+
+
+login_rate_limiter = LoginRateLimiter()
+
+
 def ensure_owner_account(session: Session) -> User | None:
-    """Create or return owner account configured in environment variables."""
+    """Create or return owner account configured in environment variables.
+
+    Refuses to create an owner account if password or email is empty or unset.
+    """
     owner_email = os.getenv("OWNER_EMAIL")
-    if not owner_email:
+    if not owner_email or not owner_email.strip():
         return None
 
     repo = UserRepository(session)
-    existing = repo.get_by_email(owner_email)
+    existing = repo.get_by_email(owner_email.strip())
     if existing is not None:
         return existing
 
     pwd_hash = os.getenv("OWNER_PASSWORD_HASH")
-    if not pwd_hash:
-        raw_pwd = os.getenv("OWNER_PASSWORD", "metalops123")
-        pwd_hash = hash_password(raw_pwd)
+    if pwd_hash:
+        pwd_hash = pwd_hash.strip()
 
-    user = repo.create(email=owner_email, password_hash=pwd_hash)
+    if not pwd_hash:
+        raw_pwd = os.getenv("OWNER_PASSWORD")
+        if raw_pwd is None or not raw_pwd.strip():
+            # Refuse to create owner account from an empty password
+            return None
+        pwd_hash = hash_password(raw_pwd.strip())
+
+    user = repo.create(email=owner_email.strip(), password_hash=pwd_hash)
     session.commit()
     return user
 

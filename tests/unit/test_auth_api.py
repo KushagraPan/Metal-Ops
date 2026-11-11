@@ -1,6 +1,8 @@
+import os
+import re
+import time
 from collections.abc import Iterator
 from pathlib import Path
-import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
@@ -184,3 +186,155 @@ def test_owner_account_created_from_env_vars(
         # Calling again should be idempotent and return existing
         owner_again = ensure_owner_account(session)
         assert owner_again.id == owner.id
+
+
+def test_full_openapi_route_list_asserts_401_without_session(client: TestClient) -> None:
+    schema = app.openapi()
+    paths = schema.get("paths", {})
+    assert paths, "OpenAPI schema must have paths"
+
+    exempt_paths = {"/api/health", "/api/auth/login"}
+
+    for path, path_item in paths.items():
+        if path in exempt_paths:
+            continue
+        for method in ["get", "post", "put", "delete", "patch"]:
+            if method not in path_item:
+                continue
+            # Replace path parameters with dummy integer id or date
+            test_path = re.sub(r"\{[a-zA-Z0-9_]+\}", "1", path)
+            response = client.request(method.upper(), test_path)
+            assert (
+                response.status_code == 401
+            ), f"OpenAPI route {method.upper()} {path} (requested as {test_path}) must return 401 without session, got {response.status_code}"
+
+
+def test_session_idle_and_absolute_expiry(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as session:
+        user = User(
+            email="timer@metalops.test",
+            password_hash=hash_password("Pass123"),
+        )
+        session.add(user)
+        session.commit()
+
+    # Login
+    res = client.post("/api/auth/login", json={"email": "timer@metalops.test", "password": "Pass123"})
+    assert res.status_code == 200
+    token = client.cookies.get("session")
+    assert token is not None
+
+    # Normal access works
+    assert client.get("/api/auth/me").status_code == 200
+
+    # Simulate idle timeout (advance last_accessed_at by > 1800s)
+    session_data = session_store.get_session_data(token)
+    assert session_data is not None
+    session_data.last_accessed_at -= 1801
+    assert client.get("/api/auth/me").status_code == 401
+
+    # Login again
+    res2 = client.post("/api/auth/login", json={"email": "timer@metalops.test", "password": "Pass123"})
+    token2 = client.cookies.get("session")
+    session_data2 = session_store.get_session_data(token2)
+    assert session_data2 is not None
+
+    # Simulate absolute timeout (advance created_at by > 43200s, even if active)
+    session_data2.created_at -= 43201
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_owner_account_refuses_empty_password(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OWNER_EMAIL", "empty_pw_owner@metalops.test")
+    monkeypatch.setenv("OWNER_PASSWORD", "")
+    monkeypatch.delenv("OWNER_PASSWORD_HASH", raising=False)
+
+    with session_factory() as session:
+        owner = ensure_owner_account(session)
+        assert owner is None
+
+    monkeypatch.setenv("OWNER_PASSWORD", "   ")
+    with session_factory() as session:
+        owner2 = ensure_owner_account(session)
+        assert owner2 is None
+
+
+def test_env_example_contains_placeholders_only() -> None:
+    env_example_path = Path(".env.example")
+    assert env_example_path.exists(), ".env.example must exist"
+    lines = env_example_path.read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, val = line.partition("=")
+        assert val == "", f".env.example key '{key}' should only contain an empty placeholder, got '{val}'"
+
+
+def test_failed_logins_return_same_message_and_are_rate_limited(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as session:
+        user = User(
+            email="ratelimit@metalops.test",
+            password_hash=hash_password("RealPassword123"),
+        )
+        session.add(user)
+        session.commit()
+
+    # Unknown email
+    res1 = client.post("/api/auth/login", json={"email": "unknown@test.local", "password": "any"})
+    assert res1.status_code == 401
+    assert res1.json() == {"detail": "Invalid email or password."}
+
+    # Wrong password
+    res2 = client.post("/api/auth/login", json={"email": "ratelimit@metalops.test", "password": "wrong"})
+    assert res2.status_code == 401
+    assert res2.json() == {"detail": "Invalid email or password."}
+
+    # Trigger rate limit: default allows 5 attempts, 6th returns 429
+    for _ in range(4):
+        res = client.post("/api/auth/login", json={"email": "ratelimit@metalops.test", "password": "wrong"})
+        assert res.status_code == 401
+
+    # 6th attempt should return 429 Too Many Requests
+    res_limited = client.post("/api/auth/login", json={"email": "ratelimit@metalops.test", "password": "wrong"})
+    assert res_limited.status_code == 429
+    assert "too many" in res_limited.text.lower() or "rate" in res_limited.text.lower()
+
+
+def test_cookie_flags_httponly_samesite_and_secure_on_https(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as session:
+        user = User(
+            email="cookie@metalops.test",
+            password_hash=hash_password("Pass123"),
+        )
+        session.add(user)
+        session.commit()
+
+    # Plain HTTP request
+    res_http = client.post("/api/auth/login", json={"email": "cookie@metalops.test", "password": "Pass123"})
+    assert res_http.status_code == 200
+    cookie_header = res_http.headers.get("set-cookie", "").lower()
+    assert "httponly" in cookie_header
+    assert "samesite=lax" in cookie_header
+    assert "secure" not in cookie_header
+
+    # HTTPS request (simulated via x-forwarded-proto or base_url)
+    res_https = client.post(
+        "/api/auth/login",
+        json={"email": "cookie@metalops.test", "password": "Pass123"},
+        headers={"x-forwarded-proto": "https"},
+    )
+    assert res_https.status_code == 200
+    cookie_header_https = res_https.headers.get("set-cookie", "").lower()
+    assert "httponly" in cookie_header_https
+    assert "samesite=lax" in cookie_header_https
+    assert "secure" in cookie_header_https
+

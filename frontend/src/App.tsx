@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Flame,
   LayoutDashboard,
+  LogOut,
   ShoppingCart,
   TrendingUp,
 } from 'lucide-react'
 
 import { ThemeProvider } from './context/ThemeContext'
 import { ThemeToggle } from './components/ThemeToggle'
+import { api, setOnUnauthorized } from './api/client'
 import DashboardPage from './pages/DashboardPage'
 import HeatsPage from './pages/HeatsPage'
+import LoginPage from './pages/LoginPage'
 import PurchasesPage from './pages/PurchasesPage'
 import SalesPage from './pages/SalesPage'
 
@@ -29,7 +32,63 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 export default function App() {
+  const [user, setUser] = useState<{ id: number; email: string } | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
   const [page, setPage] = useState<Page>('dashboard')
+
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      setUser(null)
+      setAuthChecked(true)
+    })
+
+    api.auth
+      .me()
+      .then((currentUser) => {
+        setUser(currentUser)
+      })
+      .catch(() => {
+        setUser(null)
+      })
+      .finally(() => {
+        setAuthChecked(true)
+      })
+  }, [])
+
+  const handleLogout = async () => {
+    try {
+      await api.auth.logout()
+    } catch {
+      // Continue to local logout even if network fails
+    }
+    setUser(null)
+  }
+
+  if (!authChecked) {
+    return (
+      <ThemeProvider>
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+          <div className="flex items-center gap-2">
+            <Flame className="h-5 w-5 animate-pulse text-amber-500" />
+            <span className="text-sm font-medium">Loading MetalOps Lite...</span>
+          </div>
+        </div>
+      </ThemeProvider>
+    )
+  }
+
+  if (!user) {
+    return (
+      <ThemeProvider>
+        <LoginPage
+          onLoginSuccess={(loggedInUser) => {
+            setUser(loggedInUser)
+            setPage('dashboard')
+          }}
+        />
+      </ThemeProvider>
+    )
+  }
 
   return (
     <ThemeProvider>
@@ -71,9 +130,20 @@ export default function App() {
             })}
           </nav>
 
-          <div className="border-t border-slate-200 p-4 dark:border-slate-800 flex items-center justify-between">
-            <span className="text-xs text-slate-400">Theme</span>
-            <ThemeToggle />
+          <div className="border-t border-slate-200 p-4 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400">Theme</span>
+              <ThemeToggle />
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors"
+              aria-label="Log out"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Log out</span>
+            </button>
           </div>
         </aside>
 
@@ -91,6 +161,15 @@ export default function App() {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1 rounded-md p-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors"
+                aria-label="Log out"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="sr-only">Log out</span>
+              </button>
             </div>
           </header>
 
