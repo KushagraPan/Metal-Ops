@@ -14,6 +14,8 @@ from starlette.datastructures import UploadFile
 from app.db import get_session, make_engine
 from app.main import app, create_app
 from app.models import Alloy, Base, Heat, ReportResult, Setting, SpectroReport
+from app.models.user import User
+from app.routers.auth import require_session
 from app.services.reports import ReportService, ReportStorageError
 from app.storage import LocalStorage, StorageError, get_storage
 
@@ -367,6 +369,9 @@ def test_stored_file_survives_a_new_app_instance(
 
     restarted.dependency_overrides[get_session] = override_get_session
     restarted.dependency_overrides[get_storage] = override_get_storage
+    restarted.dependency_overrides[require_session] = lambda: User(
+        id=1, email="unit-test@workshop.local", password_hash="dummy_hash"
+    )
     try:
         with TestClient(restarted) as new_client:
             response = new_client.get(

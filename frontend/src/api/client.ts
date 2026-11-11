@@ -400,4 +400,16 @@ export const api = {
       return request<DashboardData>(`/api/dashboard${query}`)
     },
   },
+  auth: {
+    login: (input: { email: string; password: string }): Promise<{ id: number; email: string }> =>
+      request<{ id: number; email: string }>('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    logout: (): Promise<void> =>
+      request<void>('/api/auth/logout', { method: 'POST' }),
+    me: (): Promise<{ id: number; email: string }> =>
+      request<{ id: number; email: string }>('/api/auth/me'),
+  },
 }
