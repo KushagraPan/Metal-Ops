@@ -30,7 +30,7 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
   - Session cookie auth, scrypt password hashing, owner bootstrap, route protection, login/logout UI.
 - **[#12] Integration tests against a real database** (Closed)
   - PostgreSQL test container (`postgres:16-alpine`), configurable `TEST_DATABASE_URL`, concurrency race protection (`FOR UPDATE`), full spec acceptance scenarios, Alembic migrations chain.
-- **[#13] Docker Compose for the full system** (Implemented — Pending Human Review)
+- **[#13] Docker Compose for the full system** (Closed)
   - **Pinned Base Images:**
     - Backend: `python:3.11.9-slim-bookworm` (digest `sha256:8fb099199b9f2d70342674bd9dbccd3ed03a258f26bbd1d556822c6dfc60c317`)
     - Frontend Builder: `node:22.14.0-alpine3.21` (digest `sha256:9bef0ef1e268f60627da9ba7d7605e8831d5b56ad07487d24d1aa386336d1944`)
@@ -76,7 +76,6 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 
 ## 3. What is Next
 
-- **Human Review of Issue #13**
 - Next issue in sequence: **#14 [P0] CI: tests on every pull request**
 
 ---
