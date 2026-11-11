@@ -251,6 +251,48 @@ Acceptance criteria:
   - Password hashing cost: increase scrypt cost parameters (`n=2^17`, `r=8`, `p=1`) in production per OWASP guidelines.
   - Account lockout: implement IP or account-level lockout / progressive delay after repeated consecutive login failures.
 
+Startup and demo login
+- No password is committed anywhere. OWNER_EMAIL and OWNER_PASSWORD come from
+  a .env created from .env.example (documented as demo only, minimum 10
+  characters). SEED_DEMO=1 loads the demo data. The README documents the exact
+  steps from clone to login.
+- docker compose up starts frontend, backend and Postgres with no other manual
+  step. The backend waits for a healthy Postgres, runs migrations once, then
+  starts. Health checks on all three services.
+
+Networking
+- nginx serves the built frontend and proxies /api to the backend, so the
+  browser sees one origin. Published ports are bound to 127.0.0.1. Postgres is
+  reachable only on the compose network.
+
+Carry-overs from the #11 QA
+- One backend worker (documented: sessions are in memory) unless sessions are
+  moved to the database.
+- Secure cookie flag when served over HTTPS; X-Forwarded-Proto honoured.
+- /docs, /redoc and /openapi.json disabled unless ENV=development.
+- Origin check on state-changing requests.
+
+Data
+- Named volumes for Postgres data and uploaded files. The README explains that
+  down keeps them and down -v deletes them.
+- Persistence test: upload a report, run down and up, download identical bytes
+  (compare checksums).
+
+Images
+- Pinned base image versions, non-root user, .dockerignore, no secrets in
+  images.
+
+Tests
+- The integration suite from #12 runs against the running stack through a base
+  URL environment variable (and the Postgres host/port parsed from
+  TEST_DATABASE_URL).
+- Time zone for the default dashboard month is documented or fixed.
+
+Safety rules for the engineer
+- Docker: only create, start, stop and remove containers, networks and volumes
+  whose names start with metalops; never docker system prune or remove
+  anything else. Never touch data/metalops.db.
+
 Tests: the integration suite passes against the Compose stack.
 
 ## #14 [P0] CI: tests on every pull request
