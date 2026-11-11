@@ -4,7 +4,7 @@ import { FileText, Upload } from 'lucide-react'
 
 import { api } from '../api/client'
 import type { Report, ReportResult } from '../api/client'
-import { CustomSelect } from '../components/ui/CustomSelect'
+import { Select } from '../components/ui/select'
 
 interface HeatReportsProps {
   heatId: number
@@ -294,7 +294,7 @@ export default function HeatReports({
               <label htmlFor="edit-result" className="app-label">
                 Edit result
               </label>
-              <CustomSelect
+              <Select
                 id="edit-result"
                 label="Edit result"
                 value={editResult}
@@ -407,7 +407,7 @@ export default function HeatReports({
               >
                 Result
               </label>
-              <CustomSelect
+              <Select
                 id="upload-result"
                 label="Result"
                 value={result}

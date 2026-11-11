@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '../api/client'
@@ -73,6 +74,7 @@ describe('HeatsPage', () => {
     vi.mocked(api.heats.list).mockResolvedValue([heat])
     vi.mocked(api.purchases.list).mockResolvedValue([])
 
+    const user = userEvent.setup()
     render(<HeatsPage />)
     await screen.findByText('H-1001')
 
@@ -90,12 +92,13 @@ describe('HeatsPage', () => {
     fireEvent.change(filters.getByLabelText('To date'), {
       target: { value: '2026-12-31' },
     })
-    fireEvent.change(filters.getByLabelText('Alloy'), {
-      target: { value: 'LM6' },
-    })
-    fireEvent.change(filters.getByLabelText('Report result'), {
-      target: { value: 'PASS' },
-    })
+
+    await user.click(filters.getByRole('button', { name: 'Alloy' }))
+    await user.click(await screen.findByRole('option', { name: 'LM6' }))
+
+    await user.click(filters.getByRole('button', { name: 'Report result' }))
+    await user.click(await screen.findByRole('option', { name: 'Pass' }))
+
     fireEvent.change(filters.getByLabelText('Heat number'), {
       target: { value: 'H-1' },
     })

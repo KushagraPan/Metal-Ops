@@ -42,19 +42,21 @@ describe('PurchaseForm', () => {
     const user = userEvent.setup()
     render(<PurchaseForm onSaved={vi.fn()} />)
 
-    const mode = screen.getByLabelText('Transport mode')
+    expect(screen.getByLabelText('Transport mode')).toBeDefined()
     const cost = screen.getByLabelText('Transport cost') as HTMLInputElement
 
     expect(cost.disabled).toBe(false)
     expect(cost.required).toBe(true)
 
-    await user.selectOptions(mode, 'SUPPLIER_DELIVERS')
+    await user.click(screen.getByRole('button', { name: 'Transport mode' }))
+    await user.click(await screen.findByRole('option', { name: 'Supplier delivers' }))
 
     expect(cost.disabled).toBe(true)
     expect(cost.required).toBe(false)
     expect(cost.value).toBe('0')
 
-    await user.selectOptions(mode, 'WE_PAY')
+    await user.click(screen.getByRole('button', { name: 'Transport mode' }))
+    await user.click(await screen.findByRole('option', { name: 'We pay' }))
 
     expect(cost.disabled).toBe(false)
     expect(cost.required).toBe(true)

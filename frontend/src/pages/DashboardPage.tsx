@@ -303,15 +303,13 @@ export default function DashboardPage({
                 <Flame className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-2xl font-bold tabular-nums text-foreground">
-                    {data.heats_count} {data.heats_count === 1 ? 'heat' : 'heats'}
-                  </span>
-                  <span className="text-sm font-medium text-muted-foreground tabular-nums">
-                    {data.break_even_heats !== null
-                      ? `(${data.heats_count} of ${Math.ceil(Number(data.break_even_heats))} heats)`
-                      : '(break-even: n/a)'}
-                  </span>
+                <div className="text-2xl font-bold tabular-nums text-foreground">
+                  {data.heats_count} {data.heats_count === 1 ? 'heat' : 'heats'}
+                </div>
+                <div className="mt-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+                  {data.break_even_heats !== null
+                    ? `(${data.heats_count} of ${Math.ceil(Number(data.break_even_heats))} heats)`
+                    : '(break-even: n/a)'}
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span>To cover {formatMoneyWhole(data.expenses_total)} fixed costs</span>
@@ -396,9 +394,11 @@ export default function DashboardPage({
                               <div className="flex flex-col items-end gap-1">
                                 <span
                                   className={`tabular-nums font-medium ${
-                                    heat.heat_profit !== null && Number(heat.heat_profit) < 0
-                                      ? 'text-rose-700 dark:text-rose-400 font-semibold'
-                                      : 'text-foreground'
+                                    heat.heat_profit !== null && Number(heat.heat_profit) > 0
+                                      ? 'text-emerald-700 dark:text-emerald-400 font-semibold'
+                                      : heat.heat_profit !== null && Number(heat.heat_profit) < 0
+                                        ? 'text-rose-700 dark:text-rose-400 font-semibold'
+                                        : 'text-foreground'
                                   }`}
                                 >
                                   {formatOptionalMoney(heat.heat_profit)}

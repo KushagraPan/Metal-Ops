@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '../api/client'
@@ -115,12 +116,12 @@ describe('HeatReports', () => {
     const updated: Report = { ...report, result: 'FAIL', notes: 'Retest' }
     vi.mocked(api.reports.update).mockResolvedValue(updated)
 
+    const user = userEvent.setup()
     render(<HeatReports heatId={4} reports={[report]} />)
 
     fireEvent.click(screen.getByLabelText('Edit report S-1'))
-    fireEvent.change(screen.getByLabelText('Edit result'), {
-      target: { value: 'FAIL' },
-    })
+    await user.click(screen.getByRole('button', { name: 'Edit result' }))
+    await user.click(await screen.findByRole('option', { name: 'Fail' }))
     fireEvent.change(screen.getByLabelText('Edit notes'), {
       target: { value: 'Retest' },
     })

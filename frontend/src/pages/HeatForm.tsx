@@ -13,7 +13,7 @@ import {
   formatOptionalMoney,
   formatOptionalPercent,
 } from '../lib/format'
-import { CustomSelect } from '../components/ui/CustomSelect'
+import { Select } from '../components/ui/select'
 
 interface HeatFormProps {
   initial?: Heat | null
@@ -286,36 +286,52 @@ export default function HeatForm({
   }
 
   return (
-    <section className="card">
-      <h2>{initial === null ? 'New heat' : `Edit heat #${initial.id}`}</h2>
-      <form className="heat-form" onSubmit={handleSubmit} noValidate>
-        <div className="form-grid">
-          <label className="field">
-            <span>Heat number</span>
+    <section className="card p-5">
+      <h2 className="text-base font-semibold text-foreground mb-4">
+        {initial === null ? 'New heat' : `Edit heat #${initial.id}`}
+      </h2>
+      <form className="heat-form space-y-5" onSubmit={handleSubmit} noValidate>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-no" className="text-xs font-semibold text-muted-foreground">
+              Heat number
+            </label>
             <input
+              id="heat-no"
               type="text"
+              aria-label="Heat number"
               value={form.heat_no}
               maxLength={50}
+              placeholder="e.g. H-1001"
               onChange={(event) => setField('heat_no', event.target.value)}
               required
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <label className="field">
-            <span>Heat date</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-date" className="text-xs font-semibold text-muted-foreground">
+              Heat date
+            </label>
             <input
+              id="heat-date"
               type="date"
+              aria-label="Heat date"
               value={form.heat_date}
               onChange={(event) =>
                 setField('heat_date', event.target.value)
               }
               required
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <div className="field">
-            <span>Alloy</span>
-            <CustomSelect
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-alloy" className="text-xs font-semibold text-muted-foreground">
+              Alloy
+            </label>
+            <Select
+              id="heat-alloy"
               label="Alloy"
               value={form.alloy}
               options={[
@@ -328,134 +344,188 @@ export default function HeatForm({
             />
           </div>
 
-          <label className="field">
-            <span>Duration (hours)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-duration" className="text-xs font-semibold text-muted-foreground">
+              Duration (hours)
+            </label>
             <input
+              id="heat-duration"
               type="number"
               inputMode="decimal"
+              aria-label="Duration (hours)"
               min="0"
               step="0.01"
+              placeholder="0.00"
               value={form.duration_hours}
               onChange={(event) =>
                 setField('duration_hours', event.target.value)
               }
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <label className="field">
-            <span>Output (kg)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-output" className="text-xs font-semibold text-muted-foreground">
+              Output (kg)
+            </label>
             <input
+              id="heat-output"
               type="number"
               inputMode="decimal"
+              aria-label="Output (kg)"
               min="0.01"
               step="0.01"
+              placeholder="0.00"
               value={form.output_kg}
               onChange={(event) =>
                 setField('output_kg', event.target.value)
               }
               required
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <label className="field">
-            <span>Dross (kg)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-dross" className="text-xs font-semibold text-muted-foreground">
+              Dross (kg)
+            </label>
             <input
+              id="heat-dross"
               type="number"
               inputMode="decimal"
+              aria-label="Dross (kg)"
               min="0"
               step="0.01"
+              placeholder="0.00"
               value={form.dross_kg}
               onChange={(event) =>
                 setField('dross_kg', event.target.value)
               }
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <label className="field">
-            <span>Iron scrap (kg)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-iron-scrap" className="text-xs font-semibold text-muted-foreground">
+              Iron scrap (kg)
+            </label>
             <input
+              id="heat-iron-scrap"
               type="number"
               inputMode="decimal"
+              aria-label="Iron scrap (kg)"
               min="0"
               step="0.01"
+              placeholder="0.00"
               value={form.iron_scrap_kg}
               onChange={(event) =>
                 setField('iron_scrap_kg', event.target.value)
               }
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <label className="field">
-            <span>Oil cost (₹)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-oil-cost" className="text-xs font-semibold text-muted-foreground">
+              Oil cost (₹)
+            </label>
             <input
+              id="heat-oil-cost"
               type="number"
               inputMode="decimal"
+              aria-label="Oil cost (₹)"
               min="0"
               step="0.01"
+              placeholder="0.00"
               value={form.oil_cost}
               onChange={(event) =>
                 setField('oil_cost', event.target.value)
               }
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <label className="field">
-            <span>Power cost (₹)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-power-cost" className="text-xs font-semibold text-muted-foreground">
+              Power cost (₹)
+            </label>
             <input
+              id="heat-power-cost"
               type="number"
               inputMode="decimal"
+              aria-label="Power cost (₹)"
               min="0"
               step="0.01"
+              placeholder="0.00"
               value={form.power_cost}
               onChange={(event) =>
                 setField('power_cost', event.target.value)
               }
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <label className="field">
-            <span>Labour cost (₹)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-labour-cost" className="text-xs font-semibold text-muted-foreground">
+              Labour cost (₹)
+            </label>
             <input
+              id="heat-labour-cost"
               type="number"
               inputMode="decimal"
+              aria-label="Labour cost (₹)"
               min="0"
               step="0.01"
+              placeholder="0.00"
               value={form.labour_cost}
               onChange={(event) =>
                 setField('labour_cost', event.target.value)
               }
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
 
-          <label className="field">
-            <span>Other cost (₹)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="heat-other-cost" className="text-xs font-semibold text-muted-foreground">
+              Other cost (₹)
+            </label>
             <input
+              id="heat-other-cost"
               type="number"
               inputMode="decimal"
+              aria-label="Other cost (₹)"
               min="0"
               step="0.01"
+              placeholder="0.00"
               value={form.other_cost}
               onChange={(event) =>
                 setField('other_cost', event.target.value)
               }
+              className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-          </label>
+          </div>
         </div>
 
-        <label className="field">
-          <span>Notes (optional)</span>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="heat-notes" className="text-xs font-semibold text-muted-foreground">
+            Notes (optional)
+          </label>
           <textarea
+            id="heat-notes"
+            aria-label="Notes (optional)"
             value={form.notes}
             rows={2}
+            placeholder="Additional heat notes..."
             onChange={(event) => setField('notes', event.target.value)}
+            className="w-full rounded-input border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
           />
-        </label>
+        </div>
 
-        <section className="input-lines">
-          <div className="input-lines-header">
+        <section className="input-lines pt-4 border-t border-border">
+          <div className="input-lines-header flex items-center justify-between pb-3">
             <div>
-              <h3>Input lots</h3>
-              <p className="muted">
+              <h3 className="text-sm font-semibold text-foreground">Input lots</h3>
+              <p className="text-xs text-muted-foreground">
                 Zero inputs is valid. Yield and profit then show n/a.
               </p>
             </div>
@@ -463,74 +533,85 @@ export default function HeatForm({
               type="button"
               onClick={addInput}
               disabled={lots.length === 0}
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Add lot
             </button>
           </div>
 
           {lots.length === 0 ? (
-            <p className="muted">
+            <p className="text-xs text-muted-foreground italic py-2">
               Add a purchase lot before linking inputs. An empty heat can
               still be saved.
             </p>
           ) : null}
 
           {form.inputs.length === 0 ? (
-            <p className="muted">No inputs yet.</p>
+            <p className="text-xs text-muted-foreground italic py-2">No inputs yet.</p>
           ) : (
-            form.inputs.map((row, index) => (
-              <div className="input-line" key={index}>
-                <div className="field">
-                  <span>Lot {index + 1}</span>
-                  <CustomSelect
-                    label={`Lot ${index + 1}`}
-                    value={row.lot_id}
-                    options={lots.map((lot) => ({
-                      value: String(lot.id),
-                      label: lotLabel(lot),
-                    }))}
-                    onChange={(value) =>
-                      setInput(index, 'lot_id', value)
-                    }
-                  />
+            <div className="space-y-3">
+              {form.inputs.map((row, index) => (
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_12rem_auto] gap-3 items-end p-3 rounded-lg border border-border bg-muted/20" key={index}>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`heat-lot-${index + 1}`} className="text-xs font-semibold text-muted-foreground">
+                      Lot {index + 1}
+                    </label>
+                    <Select
+                      id={`heat-lot-${index + 1}`}
+                      label={`Lot ${index + 1}`}
+                      value={row.lot_id}
+                      options={lots.map((lot) => ({
+                        value: String(lot.id),
+                        label: lotLabel(lot),
+                      }))}
+                      onChange={(value) =>
+                        setInput(index, 'lot_id', value)
+                      }
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={`heat-input-kg-${index + 1}`} className="text-xs font-semibold text-muted-foreground">
+                      Input kg {index + 1}
+                    </label>
+                    <input
+                      id={`heat-input-kg-${index + 1}`}
+                      type="number"
+                      inputMode="decimal"
+                      aria-label={`Input kg ${index + 1}`}
+                      min="0.01"
+                      step="0.01"
+                      value={row.kg}
+                      onChange={(event) =>
+                        setInput(index, 'kg', event.target.value)
+                      }
+                      required
+                      className="h-10 w-full rounded-input border border-border bg-card px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    aria-label={`Remove input ${index + 1}`}
+                    onClick={() => removeInput(index)}
+                    className="inline-flex h-10 items-center justify-center rounded-md border border-rose-200 dark:border-rose-900/40 bg-card px-3 text-xs font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                  >
+                    Remove
+                  </button>
                 </div>
-
-                <label className="field">
-                  <span>Input kg {index + 1}</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0.01"
-                    step="0.01"
-                    value={row.kg}
-                    onChange={(event) =>
-                      setInput(index, 'kg', event.target.value)
-                    }
-                    required
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  className="danger"
-                  aria-label={`Remove input ${index + 1}`}
-                  onClick={() => removeInput(index)}
-                >
-                  Remove
-                </button>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </section>
 
         {error !== null ? (
-          <p className="error" role="alert">
+          <p className="text-sm font-semibold text-destructive dark:text-rose-400" role="alert">
             {error}
           </p>
         ) : null}
 
         {saved !== null ? (
-          <p className="status" role="status">
+          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400" role="status">
             Saved {saved.heat_no}. Yield{' '}
             {formatOptionalPercent(saved.yield_pct)} · scrap cost{' '}
             {formatMoney(saved.scrap_cost)} · profit{' '}
@@ -538,8 +619,12 @@ export default function HeatForm({
           </p>
         ) : null}
 
-        <div className="actions">
-          <button type="submit" className="primary" disabled={saving}>
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex h-10 items-center justify-center rounded-input bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {saving
               ? 'Saving...'
               : initial === null
@@ -547,7 +632,11 @@ export default function HeatForm({
                 : 'Save changes'}
           </button>
           {initial !== null && onCancel !== undefined ? (
-            <button type="button" onClick={onCancel}>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex h-10 items-center justify-center rounded-input border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
               Cancel
             </button>
           ) : null}

@@ -195,7 +195,7 @@ export default function SalesPage() {
                       {formatOptionalMoney(sale.revenue)}
                     </td>
                     <td>{transportLabel(sale)}</td>
-                    <td className="actions whitespace-nowrap">
+                    <td className="actions whitespace-nowrap flex items-center gap-1.5 flex-nowrap">
                       <button
                         type="button"
                         aria-label={`Edit sale to ${sale.customer}`}

@@ -136,10 +136,8 @@ describe('SaleForm', () => {
     await user.type(screen.getByLabelText('Customer'), 'Demo Castings')
     await user.type(screen.getByLabelText('Weight (kg)'), '600')
     await user.type(screen.getByLabelText('Rate (₹/kg)'), '240')
-    await user.selectOptions(
-      screen.getByLabelText('Transport mode'),
-      'WE_PAY_BILL',
-    )
+    await user.click(screen.getByRole('button', { name: 'Transport mode' }))
+    await user.click(await screen.findByRole('option', { name: 'We pay and bill' }))
     await user.type(screen.getByLabelText('Transport cost'), '3000')
     await user.type(screen.getByLabelText('Transport billed'), '3001')
     await user.click(screen.getByRole('button', { name: 'Add sale' }))
@@ -174,10 +172,8 @@ describe('SaleForm', () => {
     await user.type(screen.getByLabelText('Customer'), 'Demo Castings')
     await user.type(screen.getByLabelText('Weight (kg)'), '600')
     await user.type(screen.getByLabelText('Rate (₹/kg)'), '240')
-    await user.selectOptions(
-      screen.getByLabelText('Transport mode'),
-      'CUSTOMER_ARRANGES',
-    )
+    await user.click(screen.getByRole('button', { name: 'Transport mode' }))
+    await user.click(await screen.findByRole('option', { name: 'Customer arranges' }))
     await user.click(screen.getByRole('button', { name: 'Add sale' }))
 
     expect(api.sales.create).toHaveBeenCalledWith(

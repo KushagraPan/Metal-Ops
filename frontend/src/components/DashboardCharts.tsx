@@ -68,12 +68,12 @@ export function ProfitChart({ heats }: ProfitChartProps) {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="heat_no"
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fontSize: 11, fill: 'var(--chart-axis-tick)' }}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))' }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fontSize: 11, fill: 'var(--chart-axis-tick)' }}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))' }}
                   tickFormatter={(val) => `₹${Math.round(val / 1000)}k`}
@@ -213,12 +213,12 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="heat_no"
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fontSize: 11, fill: 'var(--chart-axis-tick)' }}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))' }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fontSize: 11, fill: 'var(--chart-axis-tick)' }}
                   tickLine={false}
                   axisLine={{ stroke: 'hsl(var(--border))' }}
                   domain={yDomain}
