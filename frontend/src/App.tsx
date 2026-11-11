@@ -117,11 +117,10 @@ export default function App() {
                   key={id}
                   type="button"
                   onClick={() => setPage(id)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
-                    active
+                  className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${active
                       ? 'bg-amber-500 text-slate-950 font-semibold shadow-sm'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
-                  }`}
+                    }`}
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   <span>{label}</span>
@@ -199,11 +198,10 @@ export default function App() {
                 key={id}
                 type="button"
                 onClick={() => setPage(id)}
-                className={`flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  active
+                className={`flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${active
                     ? 'text-amber-800 dark:text-amber-400 font-bold'
                     : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
-                }`}
+                  }`}
               >
                 <Icon className="h-5 w-5" />
                 <span>{label}</span>

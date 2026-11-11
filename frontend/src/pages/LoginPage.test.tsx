@@ -3,7 +3,16 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '../api/client'
+import { ThemeProvider } from '../context/ThemeContext'
 import LoginPage from './LoginPage'
+
+function renderLoginPage(onLoginSuccess = vi.fn()) {
+  return render(
+    <ThemeProvider>
+      <LoginPage onLoginSuccess={onLoginSuccess} />
+    </ThemeProvider>,
+  )
+}
 
 vi.mock('../api/client', () => ({
   api: {
@@ -20,7 +29,7 @@ afterEach(() => {
 
 describe('LoginPage', () => {
   it('renders login form fields and submit button', () => {
-    render(<LoginPage onLoginSuccess={vi.fn()} />)
+    renderLoginPage()
 
     expect(screen.getByLabelText(/email/i)).toBeTruthy()
     expect(screen.getByLabelText(/password/i)).toBeTruthy()
@@ -31,7 +40,7 @@ describe('LoginPage', () => {
     const onLoginSuccess = vi.fn()
     vi.mocked(api.auth.login).mockResolvedValueOnce({ id: 1, email: 'owner@metalops.local' })
 
-    render(<LoginPage onLoginSuccess={onLoginSuccess} />)
+    renderLoginPage(onLoginSuccess)
 
     fireEvent.change(screen.getByLabelText(/email/i), {
       target: { value: 'owner@metalops.local' },
@@ -56,7 +65,7 @@ describe('LoginPage', () => {
   it('displays error message when login fails', async () => {
     vi.mocked(api.auth.login).mockRejectedValueOnce(new Error('Invalid email or password.'))
 
-    render(<LoginPage onLoginSuccess={vi.fn()} />)
+    renderLoginPage()
 
     fireEvent.change(screen.getByLabelText(/email/i), {
       target: { value: 'wrong@metalops.local' },

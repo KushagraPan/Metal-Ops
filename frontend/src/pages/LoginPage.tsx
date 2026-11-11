@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Flame } from 'lucide-react'
 
 import { api } from '../api/client'
+import { ThemeToggle } from '../components/ThemeToggle'
 
 interface LoginPageProps {
   onLoginSuccess: (user: { id: number; email: string }) => void
@@ -38,7 +39,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950 sm:px-6 lg:px-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950 sm:px-6 lg:px-8">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-slate-950 shadow-md">
