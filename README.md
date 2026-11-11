@@ -168,6 +168,69 @@ To require pull requests and the automated `ci` gate before merging to `main` on
 
 Once enabled, direct pushes to `main` are blocked and pull requests cannot be merged unless all CI jobs succeed through the aggregate `ci` check.
 
+## Continuous Delivery & Deployment (CD)
+
+Automated deployment runs via GitHub Actions ([`.github/workflows/cd.yml`](.github/workflows/cd.yml)):
+- **Merge to `main`:** Builds immutable container images tagged with the commit SHA (`ghcr.io/kushagrapan/metal-ops-backend:<sha>` and `metal-ops-frontend:<sha>`) and automatically redeploys the **development** environment.
+- **Production Gate:** Production deployment targets the **production** GitHub Environment and requires explicit manual review and approval from designated reviewers.
+- **Persistent Storage:** Deployments use Docker Compose (`compose.prod.yaml`) on a single small VM with named persistent volumes (`metalops_postgres_data` and `metalops_uploads`), ensuring database records and uploaded spectro PDF reports persist across updates and restarts.
+- **Version Display in UI:** The frontend displays the active application version/commit SHA in the login screen, desktop sidebar footer, and mobile top bar (`v<version>`), injected via build argument `VITE_APP_VERSION`.
+
+### Public Application URLs
+
+| Environment | Public URL | Deployment Gate |
+|---|---|---|
+| **Production** | [https://metalops.example.com](https://metalops.example.com) *(configured via `PROD_APP_URL`)* | Manual review required (GitHub Environment `production`) |
+| **Development** | [http://dev.metalops.local](http://dev.metalops.local) *(configured via `DEV_APP_URL`)* | Automated on push/merge to `main` |
+
+*Note: Replace example hosts with your provisioned VM hostnames/DNS in GitHub repository environment variables (`PROD_APP_URL`, `DEV_APP_URL`).*
+
+### VM Prerequisites & Secrets
+
+To connect CI/CD to target VMs, configure the following secrets in GitHub Repository or Environment Settings:
+
+- `DEPLOY_HOST`: Hostname or IP address of the target VM.
+- `DEPLOY_USER`: SSH user with Docker Compose access (e.g., `ubuntu` or `metalops`).
+- `DEPLOY_SSH_KEY`: Private SSH key authorized in the VM's `~/.ssh/authorized_keys`.
+- `OWNER_PASSWORD`: Admin password (minimum 10 characters).
+
+### GitHub Environment Setup for Production Approval
+
+1. In your GitHub repository, open **Settings** > **Environments**.
+2. Click **New environment** and enter name: `production`.
+3. Under **Deployment protection rules**, enable **Required reviewers** and select authorized reviewers.
+4. Click **Save protection rules**.
+5. Create a second environment named `development` with no protection rules for automated continuous deployment.
+
+### Manual Deployment & Rollback Procedure
+
+All production container images are tagged with immutable commit SHAs. If a regression occurs in production, rollback is performed by redeploying the previous image tag:
+
+#### Option A: Rollback via GitHub Actions
+1. Open **Actions** > **CD** workflow in GitHub.
+2. Click **Run workflow**.
+3. In **Specific image tag to deploy or rollback to**, enter the previous commit SHA (e.g. `44e5d654...`).
+4. Click **Run workflow** and approve the production deployment review gate.
+
+#### Option B: Direct Rollback on the VM
+Execute Docker Compose with the previous immutable image tag:
+
+```bash
+# 1. Pull the previous image tag
+IMAGE_TAG=<previous_commit_sha> docker compose -f compose.prod.yaml pull
+
+# 2. Redeploy previous container images (named volumes persist intact)
+IMAGE_TAG=<previous_commit_sha> docker compose -f compose.prod.yaml up -d --remove-orphans
+
+# 3. Verify services are healthy
+docker compose -f compose.prod.yaml ps
+```
+
+To run the automated deployment and rollback verification test locally:
+```bash
+make rollback-test
+```
+
 ## Documentation
 
 | File | Contents |

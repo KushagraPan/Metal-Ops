@@ -113,6 +113,12 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </button>
           </form>
         </div>
+
+        <div className="text-center">
+          <p className="text-xs text-slate-400 dark:text-slate-500 font-mono" data-testid="login-app-version">
+            Version: {import.meta.env.VITE_APP_VERSION || 'dev'}
+          </p>
+        </div>
       </div>
     </div>
   )

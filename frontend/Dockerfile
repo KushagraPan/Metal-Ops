@@ -9,6 +9,11 @@ RUN npm ci
 
 # Copy source and build production bundle
 COPY . .
+
+# Version build argument injected at build time
+ARG VITE_APP_VERSION=dev
+ENV VITE_APP_VERSION=$VITE_APP_VERSION
+
 RUN npm run build
 
 # Stage 2: Production web server with pinned Nginx image

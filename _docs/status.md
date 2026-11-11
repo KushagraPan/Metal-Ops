@@ -32,7 +32,7 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
   - PostgreSQL test container (`postgres:16-alpine`), configurable `TEST_DATABASE_URL`, concurrency race protection (`FOR UPDATE`), full spec acceptance scenarios, Alembic migrations chain.
 - **[#13] Docker Compose for the full system** (Closed)
   - Pinned base images, non-root user, single backend worker, secure cookies, origin check, named volumes.
-- **[#14] CI: tests on every pull request** (Implemented — Pending Human Review)
+- **[#14] CI: tests on every pull request** (Closed)
   - GitHub Actions workflow (`.github/workflows/ci.yml`) triggering on `pull_request` and `push` to `main`.
   - Top-level `permissions: contents: read` only; concurrency group cancels superseded runs.
   - Pinned actions to full SHAs with version comments (checkout, setup-python, setup-node, gitleaks, trivy).
@@ -41,12 +41,19 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
   - Upgraded vulnerable dependencies: `python-multipart==0.0.31`, `pytest==9.0.3`, `fastapi==0.162.4`, `starlette==1.3.1`.
   - `.trivyignore` pruned to retain only zero-fix upstream CVEs with documented package, severity, reason, and 90-day expiry.
   - Removed pip internal build-time CycloneDX SBOM and ensurepip to eliminate phantom setuptools findings in container scanning.
+- **[#15] CD: deploy to dev, manual deploy to production, rollback** (Implemented — Pending Human Review)
+  - GitHub Actions CD pipeline (`.github/workflows/cd.yml`) triggers on merge to `main` and `workflow_dispatch`.
+  - Builds immutable container images tagged with commit SHA (`${{ github.sha }}`) and `latest` pushed to GHCR.
+  - Automatically deploys to `development` environment on merge to `main`.
+  - Production deployment gated behind manual review approval via GitHub Environment (`production`).
+  - Production Docker Compose configuration (`compose.prod.yaml`) targeting single VM with named volumes (`metalops_postgres_data`, `metalops_uploads`) preserving database and uploaded PDF files across restarts and tag redeployments.
+  - Application version display in UI (`data-testid="app-version"` and `login-app-version`) injected at build time (`VITE_APP_VERSION`), verified across deployment and rollback.
+  - Rollback procedure documented in `README.md` and verified with automated test suite (`make rollback-test` / `scripts/rollback_test.py`).
 
 ---
 
 ## 2. Deferred Items & Backlog
 
-- **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
 - **#16 [P0] Observability for the key journey** (OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana)
 - **#17 [P0] Alert on user impact**
 - **#18 [P0] On-call agent**
@@ -59,8 +66,8 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 
 ## 3. What is Next
 
-- **Human Review of Issue #14 PR**
-- Next issue in sequence: **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
+- **Human Review of Issue #15 PR**
+- Next issue in sequence: **#16 [P0] Observability for the key journey**
 
 ---
 

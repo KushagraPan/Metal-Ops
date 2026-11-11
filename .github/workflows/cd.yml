@@ -1,0 +1,149 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Specific image tag to deploy or rollback to (leave blank to build & deploy current commit)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      image_tag: ${{ steps.set-tag.outputs.image_tag }}
+      backend_image: ${{ steps.set-tag.outputs.backend_image }}
+      frontend_image: ${{ steps.set-tag.outputs.frontend_image }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Determine image tag and repository names
+        id: set-tag
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          BACKEND="ghcr.io/${OWNER}/metal-ops-backend"
+          FRONTEND="ghcr.io/${OWNER}/metal-ops-frontend"
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${{ github.sha }}"
+            echo "build_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "backend_image=${BACKEND}" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=${FRONTEND}" >> "$GITHUB_OUTPUT"
+          echo "Resolved deployment target: ${BACKEND}:${TAG} and ${FRONTEND}:${TAG}"
+
+      - name: Log in to GitHub Container Registry
+        if: steps.set-tag.outputs.build_needed == 'true'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push backend image
+        if: steps.set-tag.outputs.build_needed == 'true'
+        run: |
+          BACKEND="${{ steps.set-tag.outputs.backend_image }}"
+          TAG="${{ steps.set-tag.outputs.image_tag }}"
+          docker build \
+            -t "${BACKEND}:${TAG}" \
+            -t "${BACKEND}:latest" \
+            .
+          docker push "${BACKEND}:${TAG}"
+          docker push "${BACKEND}:latest"
+
+      - name: Build and push frontend image
+        if: steps.set-tag.outputs.build_needed == 'true'
+        run: |
+          FRONTEND="${{ steps.set-tag.outputs.frontend_image }}"
+          TAG="${{ steps.set-tag.outputs.image_tag }}"
+          docker build \
+            --build-arg "VITE_APP_VERSION=${TAG}" \
+            -t "${FRONTEND}:${TAG}" \
+            -t "${FRONTEND}:latest" \
+            frontend
+          docker push "${FRONTEND}:${TAG}"
+          docker push "${FRONTEND}:latest"
+
+  deploy-development:
+    name: Deploy to Development
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: development
+      url: ${{ vars.DEV_APP_URL || 'http://dev.metalops.local' }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+      BACKEND_IMAGE: ${{ needs.build.outputs.backend_image }}
+      FRONTEND_IMAGE: ${{ needs.build.outputs.frontend_image }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Deploy to Development VM via SSH
+        if: env.DEPLOY_HOST != ''
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          scp compose.prod.yaml ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/compose.prod.yaml
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "IMAGE_TAG=${IMAGE_TAG} BACKEND_IMAGE=${BACKEND_IMAGE} FRONTEND_IMAGE=${FRONTEND_IMAGE} docker compose -f compose.prod.yaml pull && IMAGE_TAG=${IMAGE_TAG} BACKEND_IMAGE=${BACKEND_IMAGE} FRONTEND_IMAGE=${FRONTEND_IMAGE} docker compose -f compose.prod.yaml up -d --remove-orphans && docker compose -f compose.prod.yaml ps"
+
+      - name: Development status summary
+        run: |
+          echo "Development Deployment Completed."
+          echo "Image Tag: ${{ env.IMAGE_TAG }}"
+          echo "Backend:   ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}"
+          echo "Frontend:  ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}"
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [build, deploy-development]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: ${{ vars.PROD_APP_URL || 'https://metalops.example.com' }}
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+      BACKEND_IMAGE: ${{ needs.build.outputs.backend_image }}
+      FRONTEND_IMAGE: ${{ needs.build.outputs.frontend_image }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Deploy to Production VM via SSH
+        if: env.DEPLOY_HOST != ''
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          scp compose.prod.yaml ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/compose.prod.yaml
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "IMAGE_TAG=${IMAGE_TAG} BACKEND_IMAGE=${BACKEND_IMAGE} FRONTEND_IMAGE=${FRONTEND_IMAGE} docker compose -f compose.prod.yaml pull && IMAGE_TAG=${IMAGE_TAG} BACKEND_IMAGE=${BACKEND_IMAGE} FRONTEND_IMAGE=${FRONTEND_IMAGE} docker compose -f compose.prod.yaml up -d --remove-orphans && docker compose -f compose.prod.yaml ps"
+
+      - name: Production status summary
+        run: |
+          echo "Production Deployment Completed."
+          echo "Image Tag: ${{ env.IMAGE_TAG }}"
+          echo "Backend:   ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}"
+          echo "Frontend:  ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}"
+

@@ -143,6 +143,9 @@ export default function App() {
               <LogOut className="h-4 w-4" />
               <span>Log out</span>
             </button>
+            <div className="pt-1 text-center text-[11px] text-muted-foreground font-mono" data-testid="app-version">
+              v{import.meta.env.VITE_APP_VERSION || 'dev'}
+            </div>
           </div>
         </aside>
 
@@ -154,9 +157,14 @@ export default function App() {
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <Flame className="h-4 w-4" />
               </div>
-              <span className="font-bold text-sm text-foreground">
-                MetalOps Lite
-              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-bold text-sm text-foreground">
+                  MetalOps Lite
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono" data-testid="mobile-app-version">
+                  v{import.meta.env.VITE_APP_VERSION || 'dev'}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
