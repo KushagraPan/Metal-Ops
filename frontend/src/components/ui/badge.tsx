@@ -8,25 +8,25 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
 function Badge({ className, variant = 'default', ...props }: BadgeProps) {
   const variantStyles = {
     default:
-      'border-transparent bg-amber-500 text-slate-950 font-semibold',
+      'border-transparent bg-primary text-primary-foreground font-semibold',
     secondary:
-      'border-transparent bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100',
+      'border-transparent bg-secondary text-secondary-foreground',
     destructive:
-      'border-transparent bg-rose-500 text-white dark:bg-rose-900 dark:text-rose-200',
+      'border-transparent bg-destructive text-destructive-foreground',
     outline:
-      'text-slate-950 dark:text-slate-50 border-slate-200 dark:border-slate-800',
+      'text-foreground border-border',
     amber:
-      'border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/50 dark:text-amber-300',
+      'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300 font-semibold',
     emerald:
-      'border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-950/50 dark:text-emerald-300',
+      'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300 font-semibold',
     rose:
-      'border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-700/60 dark:bg-rose-950/50 dark:text-rose-300',
+      'border-rose-500/30 bg-rose-500/15 text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300 font-semibold',
   }[variant]
 
   return (
     <div
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2',
+        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
         variantStyles,
         className
       )}

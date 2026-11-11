@@ -92,18 +92,18 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <div className="flex min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="flex min-h-screen bg-background text-foreground">
         {/* Desktop Sidebar Navigation */}
-        <aside className="hidden md:flex md:w-64 md:flex-col md:border-r md:border-slate-200 md:bg-white dark:md:border-slate-800 dark:md:bg-slate-900">
-          <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-6 dark:border-slate-800">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-slate-950 shadow-sm">
+        <aside className="hidden md:flex md:w-64 md:flex-col md:border-r md:border-border md:bg-card">
+          <div className="flex h-16 items-center gap-2.5 border-b border-border px-6">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
               <Flame className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              <p className="font-bold tracking-tight text-foreground">
                 MetalOps Lite
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 Aluminium Recycling
               </p>
             </div>
@@ -117,9 +117,9 @@ export default function App() {
                   key={id}
                   type="button"
                   onClick={() => setPage(id)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${active
-                      ? 'bg-amber-500 text-slate-950 font-semibold shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                  className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
@@ -129,15 +129,15 @@ export default function App() {
             })}
           </nav>
 
-          <div className="border-t border-slate-200 p-4 dark:border-slate-800 space-y-3">
+          <div className="border-t border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-400">Theme</span>
+              <span className="text-xs text-muted-foreground">Theme</span>
               <ThemeToggle />
             </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
               aria-label="Log out"
             >
               <LogOut className="h-4 w-4" />
@@ -149,12 +149,12 @@ export default function App() {
         {/* Main Content Area */}
         <div className="flex flex-1 flex-col min-w-0">
           {/* Top Bar on Mobile */}
-          <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden dark:border-slate-800 dark:bg-slate-900">
+          <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4 md:hidden">
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500 text-slate-950">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <Flame className="h-4 w-4" />
               </div>
-              <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+              <span className="font-bold text-sm text-foreground">
                 MetalOps Lite
               </span>
             </div>
@@ -163,7 +163,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex items-center gap-1 rounded-md p-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-colors"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-destructive hover:bg-destructive/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
                 aria-label="Log out"
               >
                 <LogOut className="h-4 w-4" />
@@ -173,7 +173,7 @@ export default function App() {
           </header>
 
           {/* Page Body */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 md:pb-8">
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 md:pb-8 min-w-0">
             {page === 'dashboard' ? (
               <DashboardPage />
             ) : page === 'purchases' ? (
@@ -188,7 +188,7 @@ export default function App() {
 
         {/* Mobile Bottom Tab Navigation */}
         <nav
-          className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-slate-200 bg-white/95 px-2 backdrop-blur md:hidden dark:border-slate-800 dark:bg-slate-900/95"
+          className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-border bg-card/95 px-2 backdrop-blur md:hidden"
           aria-label="Mobile Sections"
         >
           {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
@@ -198,9 +198,9 @@ export default function App() {
                 key={id}
                 type="button"
                 onClick={() => setPage(id)}
-                className={`flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${active
-                    ? 'text-amber-800 dark:text-amber-400 font-bold'
-                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+                className={`flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active
+                    ? 'text-primary font-bold'
+                    : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 <Icon className="h-5 w-5" />

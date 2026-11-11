@@ -135,27 +135,27 @@ export default function DashboardPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 max-w-full">
       {/* Top Header / Month Picker */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Workshop Dashboard
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-muted-foreground">
             Monthly overview of profits, yields, heats, fixed expenses, and GST estimates.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <Calendar className="h-4 w-4 text-slate-500" />
-            <span className="text-slate-600 dark:text-slate-400">Month</span>
+          <label className="flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-1.5 text-sm font-medium shadow-sm transition hover:border-muted-foreground/40 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Month</span>
             <input
               type="month"
               aria-label="Month"
               value={activeMonth}
               onChange={(e) => handleMonthChange(e.target.value)}
-              className="bg-transparent font-medium text-slate-900 focus:outline-none dark:text-slate-100"
+              className="bg-transparent font-medium text-foreground focus:outline-none cursor-pointer"
             />
           </label>
         </div>
@@ -165,9 +165,9 @@ export default function DashboardPage({
       {error !== null && (
         <div
           role="alert"
-          className="flex items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+          className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive dark:text-rose-300"
         >
-          <AlertCircle className="h-5 w-5 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
           <div className="flex-1">
             <p className="font-semibold">Unable to load dashboard data</p>
             <p>{error}</p>
@@ -175,9 +175,9 @@ export default function DashboardPage({
           <button
             type="button"
             onClick={() => loadDashboard(activeMonth)}
-            className="inline-flex items-center gap-1 rounded-md bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-900 hover:bg-rose-200 dark:bg-rose-900 dark:text-rose-100 dark:hover:bg-rose-800"
+            className="inline-flex items-center gap-1 rounded-md bg-destructive/15 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/25 dark:text-rose-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <RefreshCw className="h-3 w-3" /> Retry
+            <RefreshCw className="h-3.5 w-3.5" /> Retry
           </button>
         </div>
       )}
@@ -212,30 +212,30 @@ export default function DashboardPage({
           {/* Row 1: Four KPI Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* KPI 1: Profit this month */}
-            <Card className="overflow-hidden border-slate-200 dark:border-slate-800">
+            <Card className="overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Profit this month
                 </CardTitle>
                 {Number(data.profit) >= 0 ? (
-                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <TrendingUp className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                  <TrendingDown className="h-4 w-4 text-rose-700 dark:text-rose-400" />
                 )}
               </CardHeader>
               <CardContent>
                 <div
                   className={`text-2xl font-bold tabular-nums ${
                     Number(data.profit) > 0
-                      ? 'text-emerald-600 dark:text-emerald-400'
+                      ? 'text-emerald-700 dark:text-emerald-400'
                       : Number(data.profit) < 0
-                        ? 'text-rose-600 dark:text-rose-400'
-                        : 'text-slate-900 dark:text-slate-100'
+                        ? 'text-rose-700 dark:text-rose-400'
+                        : 'text-foreground'
                   }`}
                 >
                   {formatMoneyWhole(data.profit)}
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span>Ex-GST net profit</span>
                   {data.is_provisional && (
                     <Badge variant="amber" className="text-[10px] uppercase font-bold tracking-wider">
@@ -247,43 +247,43 @@ export default function DashboardPage({
             </Card>
 
             {/* KPI 2: Revenue */}
-            <Card className="overflow-hidden border-slate-200 dark:border-slate-800">
+            <Card className="overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Revenue
                 </CardTitle>
-                <IndianRupee className="h-4 w-4 text-amber-500" />
+                <IndianRupee className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
+                <div className="text-2xl font-bold tabular-nums text-foreground">
                   {formatMoneyWhole(data.revenue)}
                 </div>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Total alloy and scrap sales (ex-GST)
                 </p>
               </CardContent>
             </Card>
 
             {/* KPI 3: Average yield vs plan */}
-            <Card className="overflow-hidden border-slate-200 dark:border-slate-800">
+            <Card className="overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Average yield vs plan
                 </CardTitle>
-                <Percent className="h-4 w-4 text-amber-500" />
+                <Percent className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
+                <div className="text-2xl font-bold tabular-nums text-foreground">
                   {formatOptionalPercent(data.average_yield_pct)}
                 </div>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                   <span>Plan: {formatPercent(data.planned_yield_pct)}</span>
                   {data.yield_diff_pct !== null && (
                     <span
-                      className={`ml-1.5 font-medium tabular-nums ${
+                      className={`ml-1.5 font-semibold tabular-nums ${
                         Number(data.yield_diff_pct) >= 0
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-rose-600 dark:text-rose-400'
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-rose-700 dark:text-rose-400'
                       }`}
                     >
                       ({Number(data.yield_diff_pct) >= 0 ? '+' : ''}
@@ -295,25 +295,25 @@ export default function DashboardPage({
             </Card>
 
             {/* KPI 4: Break-even progress */}
-            <Card className="overflow-hidden border-slate-200 dark:border-slate-800">
+            <Card className="overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Break-even progress
                 </CardTitle>
-                <Flame className="h-4 w-4 text-amber-500" />
+                <Flame className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
+                  <span className="text-2xl font-bold tabular-nums text-foreground">
                     {data.heats_count} {data.heats_count === 1 ? 'heat' : 'heats'}
                   </span>
-                  <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  <span className="text-sm font-medium text-muted-foreground tabular-nums">
                     {data.break_even_heats !== null
                       ? `(${data.heats_count} of ${Math.ceil(Number(data.break_even_heats))} heats)`
                       : '(break-even: n/a)'}
                   </span>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span>To cover {formatMoneyWhole(data.expenses_total)} fixed costs</span>
                   {data.is_provisional && (
                     <Badge variant="amber" className="text-[10px] uppercase font-bold tracking-wider">
@@ -340,7 +340,7 @@ export default function DashboardPage({
                   <CardTitle className="text-base font-semibold">
                     Heats in {data.month}
                   </CardTitle>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                  <span className="text-xs text-muted-foreground">
                     {data.heats.length} total heats
                   </span>
                 </div>
@@ -350,11 +350,11 @@ export default function DashboardPage({
               </CardHeader>
               <CardContent>
                 {data.heats.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center dark:border-slate-800">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                    <p className="text-sm font-medium text-foreground">
                       No heats recorded in this month
                     </p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Heats created with dates in {data.month} will appear here automatically.
                     </p>
                   </div>
@@ -362,7 +362,7 @@ export default function DashboardPage({
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <tr className="border-b border-border text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                           <th className="py-2.5 px-3">Heat No</th>
                           <th className="py-2.5 px-3">Date</th>
                           <th className="py-2.5 px-3">Alloy</th>
@@ -371,25 +371,25 @@ export default function DashboardPage({
                           <th className="py-2.5 px-3 text-right">Profit</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans">
+                      <tbody className="divide-y divide-border/60 font-sans">
                         {data.heats.map((heat) => (
                           <tr
                             key={heat.id}
-                            className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                            className="transition-colors hover:bg-muted/40"
                           >
-                            <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                            <td className="py-2.5 px-3 font-semibold text-foreground">
                               {heat.heat_no}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                            <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
                               {heat.heat_date}
                             </td>
-                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">
+                            <td className="py-2.5 px-3 text-muted-foreground">
                               {heat.alloy}
                             </td>
-                            <td className="py-2.5 px-3 text-right tabular-nums text-slate-900 dark:text-slate-100">
+                            <td className="py-2.5 px-3 text-right tabular-nums text-foreground">
                               {formatKg(heat.output_kg)}
                             </td>
-                            <td className="py-2.5 px-3 text-right tabular-nums text-slate-900 dark:text-slate-100">
+                            <td className="py-2.5 px-3 text-right tabular-nums text-foreground">
                               {formatOptionalPercent(heat.yield_pct)}
                             </td>
                             <td className="py-2.5 px-3 text-right">
@@ -397,16 +397,16 @@ export default function DashboardPage({
                                 <span
                                   className={`tabular-nums font-medium ${
                                     heat.heat_profit !== null && Number(heat.heat_profit) < 0
-                                      ? 'text-rose-600 dark:text-rose-400'
-                                      : 'text-slate-900 dark:text-slate-100'
+                                      ? 'text-rose-700 dark:text-rose-400 font-semibold'
+                                      : 'text-foreground'
                                   }`}
                                 >
                                   {formatOptionalMoney(heat.heat_profit)}
                                 </span>
                                 {heat.is_provisional && (
-                                  <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+                                  <Badge variant="amber" className="text-[10px] uppercase font-bold tracking-wider">
                                     provisional
-                                  </span>
+                                  </Badge>
                                 )}
                               </div>
                             </td>
@@ -438,27 +438,27 @@ export default function DashboardPage({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                    <div className="text-xs text-muted-foreground">
                       Estimated Net Payable
                     </div>
-                    <div className="mt-0.5 text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
+                    <div className="mt-0.5 text-2xl font-bold tabular-nums text-foreground">
                       {formatMoney(data.gst_estimate.net_payable_estimate)}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+                  <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-3 border border-border">
                     <div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
                         Collected (Sales)
                       </div>
-                      <div className="mt-1 font-semibold tabular-nums text-slate-900 dark:text-slate-100 text-sm">
+                      <div className="mt-1 font-semibold tabular-nums text-foreground text-sm">
                         {formatMoney(data.gst_estimate.collected)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider">
                         Credit (Purchases)
                       </div>
-                      <div className="mt-1 font-semibold tabular-nums text-slate-900 dark:text-slate-100 text-sm">
+                      <div className="mt-1 font-semibold tabular-nums text-foreground text-sm">
                         {formatMoney(data.gst_estimate.credit)}
                       </div>
                     </div>
@@ -473,7 +473,7 @@ export default function DashboardPage({
                     <CardTitle className="text-base font-semibold">
                       Fixed Expenses
                     </CardTitle>
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums">
+                    <span className="text-xs font-semibold text-muted-foreground tabular-nums">
                       Total: {formatMoney(data.expenses_total)}
                     </span>
                   </div>
@@ -483,27 +483,27 @@ export default function DashboardPage({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {data.expenses.length === 0 ? (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                    <p className="text-xs text-muted-foreground italic">
                       No fixed expenses recorded for this month.
                     </p>
                   ) : (
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-border/50">
                       {data.expenses.map((expense) => (
                         <div
                           key={expense.id}
                           className="flex items-center justify-between py-2 text-sm"
                         >
-                          <span className="font-medium text-slate-800 dark:text-slate-200">
+                          <span className="font-medium text-foreground">
                             {expense.category}
                           </span>
                           <div className="flex items-center gap-3">
-                            <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                            <span className="font-semibold tabular-nums text-foreground">
                               {formatMoney(expense.amount)}
                             </span>
                             <button
                               type="button"
                               onClick={() => handleDeleteExpense(expense.id)}
-                              className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400"
+                              className="text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded p-1 transition-colors"
                               title="Delete expense"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -517,13 +517,13 @@ export default function DashboardPage({
                   {/* Add expense form */}
                   <form
                     onSubmit={handleAddExpense}
-                    className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/40"
+                    className="mt-4 rounded-lg border border-border bg-muted/30 p-3.5"
                   >
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <div className="text-xs font-semibold text-foreground">
                       Add Overhead Expense
                     </div>
                     {expenseError !== null && (
-                      <p className="mt-1 text-xs text-rose-600 dark:text-rose-400" role="alert">
+                      <p className="mt-1 text-xs text-destructive dark:text-rose-400" role="alert">
                         {expenseError}
                       </p>
                     )}
@@ -533,7 +533,7 @@ export default function DashboardPage({
                         placeholder="Category (e.g. Rent)"
                         value={expenseCategory}
                         onChange={(e) => setExpenseCategory(e.target.value)}
-                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                       <input
                         type="number"
@@ -542,16 +542,16 @@ export default function DashboardPage({
                         placeholder="Amount (₹)"
                         value={expenseAmount}
                         onChange={(e) => setExpenseAmount(e.target.value)}
-                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        className="rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                     </div>
-                    <div className="mt-2 flex justify-end">
+                    <div className="mt-2.5 flex justify-end">
                       <button
                         type="submit"
                         disabled={savingExpense}
-                        className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-950 transition hover:bg-amber-400 disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-3.5 w-3.5" />
                         {savingExpense ? 'Adding...' : 'Add Expense'}
                       </button>
                     </div>

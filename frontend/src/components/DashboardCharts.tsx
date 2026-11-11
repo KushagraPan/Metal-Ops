@@ -65,33 +65,33 @@ export function ProfitChart({ heats }: ProfitChartProps) {
           >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-800" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="heat_no"
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickLine={false}
-                  axisLine={{ stroke: '#94a3b8' }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickLine={false}
-                  axisLine={{ stroke: '#94a3b8' }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
                   tickFormatter={(val) => `₹${Math.round(val / 1000)}k`}
                 />
-                <ReferenceLine y={0} stroke="#94a3b8" />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" />
                 <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length && payload[0]?.payload) {
                       const item = payload[0].payload
                       const profitColor =
                         item.profit > 0
-                          ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                          ? 'text-emerald-700 dark:text-emerald-400 font-medium'
                           : item.profit < 0
-                            ? 'text-rose-600 dark:text-rose-400 font-medium'
-                            : 'text-slate-600 dark:text-slate-300 font-medium'
+                            ? 'text-rose-700 dark:text-rose-400 font-medium'
+                            : 'text-muted-foreground font-medium'
                       return (
-                        <div className="rounded-md border border-slate-200 bg-white p-2 text-xs shadow-md dark:border-slate-800 dark:bg-slate-900">
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">
+                        <div className="rounded-md border border-border bg-card p-2.5 text-xs shadow-md">
+                          <p className="font-semibold text-foreground">
                             {item.heat_no}
                             {item.is_provisional ? ' (Provisional)' : ''}
                           </p>
@@ -129,14 +129,14 @@ export function ProfitChart({ heats }: ProfitChartProps) {
         )}
 
         {/* Text alternative for screen readers and accessibility */}
-        <details className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-          <summary className="cursor-pointer hover:underline">
+        <details className="mt-3 text-xs text-muted-foreground">
+          <summary className="cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1">
             View profit chart data as table
           </summary>
           <div className="mt-2 max-h-36 overflow-y-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800">
+                <tr className="border-b border-border text-muted-foreground">
                   <th className="py-1">Heat</th>
                   <th className="py-1 text-right">Profit</th>
                   <th className="py-1 text-right">Status</th>
@@ -144,9 +144,9 @@ export function ProfitChart({ heats }: ProfitChartProps) {
               </thead>
               <tbody>
                 {data.map((h) => (
-                  <tr key={h.heat_no} className="border-b border-slate-100 dark:border-slate-900">
+                  <tr key={h.heat_no} className="border-b border-border/50 text-foreground">
                     <td className="py-1">{h.heat_no}</td>
-                    <td className="py-1 text-right font-mono">{formatMoneyWhole(h.profit)}</td>
+                    <td className="py-1 text-right tabular-nums">{formatMoneyWhole(h.profit)}</td>
                     <td className="py-1 text-right">{h.is_provisional ? 'Provisional' : 'Final'}</td>
                   </tr>
                 ))}
@@ -210,17 +210,17 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
           >
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-800" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="heat_no"
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickLine={false}
-                  axisLine={{ stroke: '#94a3b8' }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                   tickLine={false}
-                  axisLine={{ stroke: '#94a3b8' }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
                   domain={yDomain}
                   tickFormatter={(val) => `${val}%`}
                 />
@@ -241,15 +241,15 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
                     if (active && payload && payload.length && payload[0]?.payload) {
                       const item = payload[0].payload
                       return (
-                        <div className="rounded-md border border-slate-200 bg-white p-2 text-xs shadow-md dark:border-slate-800 dark:bg-slate-900">
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">
+                        <div className="rounded-md border border-border bg-card p-2.5 text-xs shadow-md">
+                          <p className="font-semibold text-foreground">
                             {item.heat_no}
                             {item.is_provisional ? ' (Provisional)' : ''}
                           </p>
                           <p className="text-amber-600 dark:text-amber-400 font-medium">
                             Yield: {formatPercent(item.yield_pct)}
                           </p>
-                          <p className="text-slate-500 dark:text-slate-400">
+                          <p className="text-muted-foreground">
                             Plan: {formatPercent(plannedYieldPct)}
                           </p>
                         </div>
@@ -271,7 +271,7 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
                     if (payload?.is_provisional) {
                       return (
                         <g key={`dot-provisional-${cx}-${cy}`}>
-                          <circle cx={cx} cy={cy} r={6} fill="#ffffff" stroke="#d97706" strokeWidth={2} />
+                          <circle cx={cx} cy={cy} r={6} fill="hsl(var(--card))" stroke="#d97706" strokeWidth={2} />
                           <circle cx={cx} cy={cy} r={2} fill="#d97706" />
                         </g>
                       )
@@ -286,14 +286,14 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
         )}
 
         {/* Text alternative for accessibility */}
-        <details className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-          <summary className="cursor-pointer hover:underline">
+        <details className="mt-3 text-xs text-muted-foreground">
+          <summary className="cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1">
             View yield chart data as table
           </summary>
           <div className="mt-2 max-h-36 overflow-y-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800">
+                <tr className="border-b border-border text-muted-foreground">
                   <th className="py-1">Heat</th>
                   <th className="py-1 text-right">Yield</th>
                   <th className="py-1 text-right">Status</th>
@@ -301,9 +301,9 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
               </thead>
               <tbody>
                 {data.map((h) => (
-                  <tr key={h.heat_no} className="border-b border-slate-100 dark:border-slate-900">
+                  <tr key={h.heat_no} className="border-b border-border/50 text-foreground">
                     <td className="py-1">{h.heat_no}</td>
-                    <td className="py-1 text-right font-mono">{formatPercent(h.yield_pct)}</td>
+                    <td className="py-1 text-right tabular-nums">{formatPercent(h.yield_pct)}</td>
                     <td className="py-1 text-right">{h.is_provisional ? 'Provisional' : 'Final'}</td>
                   </tr>
                 ))}
