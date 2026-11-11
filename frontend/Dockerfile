@@ -1,5 +1,5 @@
 # Stage 1: Build frontend bundle with pinned Node image
-FROM node:22.14.0-alpine3.21 AS builder
+FROM node:22.23.4-alpine3.24 AS builder
 
 WORKDIR /app
 
@@ -20,8 +20,9 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy Nginx proxy configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Configure ownership for non-root where possible
-RUN touch /var/run/nginx.pid && \
+# Upgrade packages and configure ownership for non-root where possible
+RUN apk upgrade --no-cache && \
+    touch /var/run/nginx.pid && \
     chown -R nginx:nginx /var/run/nginx.pid /var/cache/nginx /usr/share/nginx/html /etc/nginx/conf.d
 
 EXPOSE 80
