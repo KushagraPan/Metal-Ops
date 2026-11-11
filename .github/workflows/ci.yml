@@ -33,7 +33,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -84,6 +84,16 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Run database migrations
+        run: make migrate
+
       - name: Run backend unit tests
         run: make test-unit
 
@@ -101,7 +111,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -125,31 +135,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Set up Trivy scanner
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+
       - name: Build backend container image
         run: docker build -t metalops-backend:ci .
 
       - name: Scan backend image with Trivy
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
-        with:
-          image-ref: metalops-backend:ci
-          format: table
-          exit-code: 1
-          ignore-unfixed: false
-          severity: HIGH,CRITICAL
-          trivyignores: .trivyignore
+        run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore metalops-backend:ci
 
       - name: Build frontend container image
         run: docker build -t metalops-frontend:ci frontend
 
       - name: Scan frontend image with Trivy
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
-        with:
-          image-ref: metalops-frontend:ci
-          format: table
-          exit-code: 1
-          ignore-unfixed: false
-          severity: HIGH,CRITICAL
-          trivyignores: .trivyignore
+        run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore metalops-frontend:ci
 
   ci:
     name: ci
