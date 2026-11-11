@@ -20,12 +20,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.drop_constraint(
+            "sample_no_positive",
+            "spectro_reports",
+            type_="check",
+        )
     with op.batch_alter_table("spectro_reports", schema=None) as batch_op:
         batch_op.drop_constraint("sample_no_per_heat", type_="unique")
-        if bind.dialect.name != "sqlite":
-            batch_op.drop_constraint(
-                "ck_spectro_reports_sample_no_positive", type_="check"
-            )
         batch_op.alter_column(
             "sample_no",
             existing_type=sa.Integer(),
@@ -47,10 +49,12 @@ def downgrade() -> None:
             existing_nullable=False,
             postgresql_using="sample_no::integer",
         )
-        if bind.dialect.name != "sqlite":
-            batch_op.create_check_constraint(
-                "ck_spectro_reports_sample_no_positive", "sample_no > 0"
-            )
         batch_op.create_unique_constraint(
             "sample_no_per_heat", ["heat_id", "sample_no"]
+        )
+    if bind.dialect.name != "sqlite":
+        op.create_check_constraint(
+            "sample_no_positive",
+            "spectro_reports",
+            "sample_no > 0",
         )

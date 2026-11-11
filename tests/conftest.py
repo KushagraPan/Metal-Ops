@@ -6,8 +6,12 @@ from app.routers.auth import require_session
 
 @pytest.fixture(autouse=True)
 def bypass_auth_for_unit_tests(request: pytest.FixtureRequest):
-    # Do not bypass authentication when testing auth itself
-    if "test_auth" in request.module.__name__:
+    # Do not bypass authentication when testing auth itself or running integration tests
+    if (
+        "test_auth" in request.module.__name__
+        or "integration" in request.module.__name__
+        or request.node.get_closest_marker("integration") is not None
+    ):
         yield
         return
 
