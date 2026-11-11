@@ -13,18 +13,22 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev test test-unit test-db-up test-db-down typecheck clean migrate seed reset-db
+.PHONY: help install dev test test-unit test-db-up test-db-down typecheck clean migrate seed reset-db stack-up stack-down stack-test stack-persistence
 
 help:
-	@echo make dev          API on http://127.0.0.1:8000 and frontend on http://127.0.0.1:5173
-	@echo make test         unit + integration tests, Vitest and TypeScript check
-	@echo make test-unit    pytest unit tests only
-	@echo make test-db-up   start PostgreSQL test container
-	@echo make test-db-down stop and remove PostgreSQL test container
-	@echo make install      create the virtualenv and install dependencies
-	@echo make migrate      apply Alembic migrations to DATABASE_URL
-	@echo make seed         migrate, then insert the fictional demo data
-	@echo make reset-db     delete the local dev database, migrate and reseed
+	@echo make dev               API on http://127.0.0.1:8000 and frontend on http://127.0.0.1:5173
+	@echo make test              unit + integration tests, Vitest and TypeScript check
+	@echo make test-unit         pytest unit tests only
+	@echo make test-db-up        start PostgreSQL test container
+	@echo make test-db-down      stop and remove PostgreSQL test container
+	@echo make stack-up          start Docker Compose stack with test port published
+	@echo make stack-down        stop and tear down Docker Compose stack
+	@echo make stack-test        run integration tests against Compose stack
+	@echo make stack-persistence verify report persistence across stack restart
+	@echo make install           create the virtualenv and install dependencies
+	@echo make migrate           apply Alembic migrations to DATABASE_URL
+	@echo make seed              migrate, then insert the fictional demo data
+	@echo make reset-db          delete the local dev database, migrate and reseed
 
 install: .venv/.installed frontend/node_modules/.installed
 
@@ -56,6 +60,18 @@ test-db-up: install
 
 test-db-down: install
 	$(VENV_PY) scripts/test_db.py down
+
+stack-up: install
+	docker compose -f compose.yaml -f compose.test.yaml up -d --build --wait
+
+stack-down: install
+	docker compose -f compose.yaml -f compose.test.yaml down
+
+stack-test: install
+	$(VENV_PY) scripts/run_stack_test.py
+
+stack-persistence: install
+	$(VENV_PY) scripts/stack_persistence_test.py
 
 test-unit: install
 	$(VENV_PY) -m pytest tests/unit

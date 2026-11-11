@@ -102,7 +102,7 @@ def clean_postgres_db(postgres_engine) -> Iterator[None]:
     with postgres_engine.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE;"))
         conn.execute(text("CREATE SCHEMA public;"))
-        conn.execute(text(f"GRANT ALL ON SCHEMA public TO {user};"))
+        conn.execute(text(f'GRANT ALL ON SCHEMA public TO "{user}";'))
         conn.execute(text("GRANT ALL ON SCHEMA public TO public;"))
 
     Base.metadata.create_all(postgres_engine)
@@ -131,7 +131,7 @@ def test_storage(tmp_path: Path) -> LocalStorage:
 def auth_client(
     postgres_session_factory: sessionmaker[Session],
     test_storage: LocalStorage,
-) -> Iterator[TestClient]:
+) -> Iterator[Any]:
     """TestClient authenticated via real /api/auth/login against PostgreSQL."""
     session_store.clear()
 
@@ -144,6 +144,21 @@ def auth_client(
         session.add(owner)
         session.add(Setting(id=1, gst_rate=0.18, planned_yield_pct=89.0))
         session.commit()
+
+    base_url = os.getenv("BASE_URL")
+    if base_url:
+        import httpx
+        with httpx.Client(base_url=base_url, follow_redirects=True, timeout=10.0) as client:
+            login_res = client.post(
+                "/api/auth/login",
+                json={
+                    "email": "owner@workshop.local",
+                    "password": "owner_password_123",
+                },
+            )
+            assert login_res.status_code == 200, f"Login failed against {base_url}: {login_res.text}"
+            yield client
+        return
 
     def override_get_session() -> Iterator[Session]:
         with postgres_session_factory() as session:

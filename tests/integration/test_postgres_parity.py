@@ -38,10 +38,11 @@ def test_alembic_chain_and_idempotent_seed(
 ) -> None:
     """Run full Alembic migration chain from empty on PostgreSQL, then run seed twice."""
     # 1. Wipe schema to completely empty
+    db_user = postgres_engine.url.username or "postgres"
     with postgres_engine.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE;"))
         conn.execute(text("CREATE SCHEMA public;"))
-        conn.execute(text("GRANT ALL ON SCHEMA public TO metalops_test;"))
+        conn.execute(text(f'GRANT ALL ON SCHEMA public TO "{db_user}";'))
         conn.execute(text("GRANT ALL ON SCHEMA public TO public;"))
 
     # 2. Run Alembic upgrade head
