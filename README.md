@@ -141,6 +141,33 @@ make stack-persistence
 make stack-down
 ```
 
+## Continuous Integration & Branch Protection
+
+Automated verification runs on GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) on every pull request and on pushes to `main`. The pipeline comprises parallel jobs:
+
+- **Supply Chain & Security:** exact dependency pin check (`scripts/check_pins.py`), `npm audit` (high and above), `pip-audit`, and full-history secret scanning with Gitleaks.
+- **Backend Tests:** unit tests (`make test-unit`) and integration tests (`make test-integration`) against a PostgreSQL service container (`postgres:16-alpine`).
+- **Frontend Tests & Build:** Vitest suite, TypeScript compilation (`tsc --noEmit`), and Vite production bundle build.
+- **Docker Build & Vulnerability Scan:** builds both backend and frontend images and scans for HIGH and CRITICAL vulnerabilities using Trivy.
+- **Aggregate Gate (`ci`):** an aggregate job named `ci` coordinates all parallel stages and acts as the required status check for branch protection.
+
+### Branch Protection Setup
+
+To require pull requests and the automated `ci` gate before merging to `main` on GitHub:
+
+1. In your GitHub repository, open **Settings** > **Branches** (under *Code and automation*).
+2. Click **Add branch ruleset** (or **Add branch protection rule**).
+3. Set **Branch name pattern** to `main`.
+4. Under **Protect matching branches**, enable:
+   - **Require a pull request before merging** (check *Dismiss stale pull request approvals when new commits are pushed*).
+   - **Require status checks to pass before merging**:
+     - Check **Require branches to be up to date before merging**.
+     - In the search field under *Status checks that are required*, search for and select the aggregate check: **`ci`**.
+   - **Do not allow bypassing the above settings** (enforces rules for administrators).
+5. Click **Save changes** (or **Create**).
+
+Once enabled, direct pushes to `main` are blocked and pull requests cannot be merged unless all CI jobs succeed through the aggregate `ci` check.
+
 ## Documentation
 
 | File | Contents |
