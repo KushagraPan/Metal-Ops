@@ -210,6 +210,18 @@ Acceptance criteria:
 - Stock guard scenario passes (scenario 3).
 - A concurrent heat-create race runs against PostgreSQL and proves the `FOR UPDATE` path keeps stock non-negative: one create succeeds, one returns 422.
 - `make test` runs unit and integration tests together and passes.
+- Postgres source: a throwaway Postgres container with a pinned image version, a test-only database, started by a make target; never `data/metalops.db` or any dev/production database.
+- The three scenarios use the numbers quoted from `product-spec.md`:
+  - Scenario 1 (Profit): "Given the worked example in section 5, when the data is entered through the API, then the heat detail shows yield 89.0% and profit 3,160.00, and 5,160.00 after switching the sale to `WE_PAY_BILL` with 2,000 billed."
+  - Scenario 2 (Report history): "Given a heat with two uploaded PDFs, when the user searches its heat number a month later, then both reports open from the heat detail."
+  - Scenario 3 (Stock guard): "Given a lot with 500 kg remaining, when a heat tries to take 600 kg from it, then the request is rejected and nothing is saved."
+- Integration tests log in through the real `/api/auth/login`; the conftest auth bypass does not apply to them.
+- The full Alembic chain runs from empty on Postgres; seed runs twice with identical row counts.
+- The race: two real concurrent requests (threads with a barrier, separate connections) against Postgres; exactly one create succeeds, the other returns 422, remaining stock ends at 0.00, never negative. Same race for sales against the sold-alloy cap. A test or documented check shows the race fails if the stock check runs outside the locked transaction.
+- Behaviour that differs between SQLite and Postgres (Decimal precision, case-insensitive heat search, constraint errors, 409/422 mapping) is covered.
+- `make test` runs unit and integration tests together; if the database or Docker is unavailable it FAILS with a clear message (no silent skips); `make test-unit` runs only unit tests.
+- New Postgres driver pinned exactly; dependency audit clean; the SQLite dev path is unchanged.
+- Each run starts from a clean schema and a temporary storage folder.
 
 Tests: the three scenarios plus the PostgreSQL row-lock concurrency race.
 
@@ -222,6 +234,16 @@ Acceptance criteria:
 - `docker compose up` starts frontend, backend and Postgres with no manual steps; migrations run on start.
 - The README documents the command, ports and the demo login.
 - Uploaded files persist across `docker compose down` and `up`.
+- No password is committed. OWNER_EMAIL and OWNER_PASSWORD come from a .env created from .env.example (documented as demo only, minimum 10 characters); `SEED_DEMO=1` loads the demo data; the README documents the demo login steps.
+- nginx serves the built frontend and proxies `/api` to the backend (one origin); published ports bound to 127.0.0.1; Postgres reachable only on the compose network.
+- One backend worker (documented: sessions are in memory) unless sessions are moved to the database.
+- Secure cookie flag when served over HTTPS; `X-Forwarded-Proto` honoured; `/docs`, `/redoc` and `/openapi.json` disabled unless `ENV=development`; Origin check on state-changing requests.
+- Named volumes for Postgres data and uploaded files; README explains that `down` keeps them and `down -v` deletes them; the persistence test uploads a report, runs `down` and `up`, and downloads identical bytes.
+- Backend waits for a healthy Postgres, runs migrations once, then starts; health checks on all services.
+- Pinned base image versions, non-root user, `.dockerignore`, no secrets in images.
+- The integration suite from #12 runs against the running stack through a base URL environment variable.
+- Time zone for the default dashboard month is documented or fixed.
+- The engineer only touches containers, networks and volumes it created with this project's name; never `docker system prune` or removal of anything else.
 - Production security and multi-worker session hardening (deferred from #11):
   - Sessions in memory: migrate to a persistent session store (Redis or database table) so multiple backend workers share session state.
   - Secure cookie and CORS/Origin: set `secure=True` on session cookies under HTTPS/production and enforce strict CORS and Origin header verification for SPA requests.
