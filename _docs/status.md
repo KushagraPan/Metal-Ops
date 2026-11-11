@@ -1,10 +1,10 @@
 # MetalOps Lite — Project Status
 
-Last updated: Issue #12 implementation (Integration tests against a real database).
+Last updated: Issue #13 implementation (Docker Compose for the full system).
 
 ---
 
-## 1. Issues Closed
+## 1. Issues Closed & Implemented
 
 - **[#1] Project scaffold, dependencies and developer workflow** (Closed)
   - FastAPI backend, SQLAlchemy 2, Alembic, React + TypeScript Vite frontend, `Makefile` targets.
@@ -29,48 +29,55 @@ Last updated: Issue #12 implementation (Integration tests against a real databas
 - **[#11] Authentication** (Closed)
   - Session cookie auth, scrypt password hashing, owner bootstrap, route protection, login/logout UI.
 - **[#12] Integration tests against a real database** (Closed)
-  - **PostgreSQL test container:** Pinned `postgres:16-alpine` (PostgreSQL 16.15) on port `5433` via `make test-db-up` / `make test-db-down`.
-  - **Configurable `TEST_DATABASE_URL`:** Parses host, port, user, password, and db (supports CI and Docker Compose), with clear failure message printing host and port.
-  - **No silent skips:** `make test` and integration test fixtures fail fast with clear actionable error messages if Docker or PostgreSQL is unavailable.
-  - **Spec Acceptance Scenarios (quoted from `product-spec.md`):**
-    - *Scenario 1 (Profit):* Worked example in Section 5 verified through the API (yield 89.0%, profit ₹3,160.00 ex-GST, switches to ₹5,160.00 under `WE_PAY_BILL`).
-    - *Scenario 2 (Report history):* Heat with two uploaded PDF reports queried 1 month later; both download with byte-for-byte fidelity.
-    - *Scenario 3 (Stock guard):* Lot with 500 kg rejects an overdraw attempt of 600 kg with 422; remaining stock remains 500.00 kg.
-  - **Concurrency Race Protection:**
-    - Real concurrent requests with `threading.Barrier(2)` and separate PostgreSQL connections.
-    - Stock guard race: exactly one 201 created, one 422 rejected; remaining stock ends at 0.00, never negative.
-    - Sales alloy cap race: exactly one 201 created, one 422 rejected; sold alloy capped at heat output.
-    - Mutation check verified: without `FOR UPDATE`, concurrent race produces overdraw (both requests succeed, stock goes negative).
-  - **PostgreSQL Parity & Migrations:**
-    - Clean schema and temporary storage per test run.
-    - Full Alembic chain runs from empty on PostgreSQL; seed is idempotent across multiple runs.
-    - Decimal precision (2 decimal places) validated against PostgreSQL numeric types.
-    - Case-insensitive heat search (`ilike`) verified.
-    - Unique constraint violations and in-use constraints correctly map to 409 / 422.
+  - PostgreSQL test container (`postgres:16-alpine`), configurable `TEST_DATABASE_URL`, concurrency race protection (`FOR UPDATE`), full spec acceptance scenarios, Alembic migrations chain.
+- **[#13] Docker Compose for the full system** (Implemented — Pending Human Review)
+  - **Pinned Base Images:**
+    - Backend: `python:3.11.9-slim-bookworm` (digest `sha256:8fb099199b9f2d70342674bd9dbccd3ed03a258f26bbd1d556822c6dfc60c317`)
+    - Frontend Builder: `node:22.14.0-alpine3.21` (digest `sha256:9bef0ef1e268f60627da9ba7d7605e8831d5b56ad07487d24d1aa386336d1944`)
+    - Frontend Web Server: `nginx:1.27.4-alpine` (digest `sha256:4ff102c5d78d254a6f0da062b3cf39eaf07f01eec0927fd21e219d0af8bc0591`)
+    - Database: `postgres:16-alpine` (digest `sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139`)
+  - **Hardened Architecture & Security:**
+    - Non-root user in containers (`metalops:1000` in backend, `nginx:nginx` in frontend).
+    - `.dockerignore` for backend and frontend preventing image bloat and secret leakage.
+    - Single backend worker (`--workers 1`) documented for in-memory session store.
+    - Cookie flags: `HttpOnly`, `SameSite=Lax`, and `Secure` flag dynamically enforced when `X-Forwarded-Proto: https` is received.
+    - Origin verification middleware for state-changing HTTP requests (`POST`, `PUT`, `DELETE`, `PATCH`): mismatching `Origin` returns 403 Forbidden; absent `Origin` allowed for non-browser clients.
+    - Documentation endpoints (`/docs`, `/redoc`, `/openapi.json`) gated to `ENV=development` only (disabled in `production`).
+    - Pure Python `.env` loader (`app/env.py`) ensuring environment variables are populated prior to database and storage initialization.
+    - Default dashboard month computed using Indian Standard Time (`Asia/Kolkata`) via standard library `zoneinfo` / `TZ`.
+  - **Networking & Storage:**
+    - Frontend Nginx serves SPA static bundle and reverse-proxies `/api` to backend (`http://backend:8000`), presenting a single origin to browsers.
+    - Published ports bound strictly to `127.0.0.1:3000` (or `${FRONTEND_PORT}`).
+    - Postgres is unexposed in production `compose.yaml` (reachable only on internal network `metalops_network`).
+    - Named volumes `metalops_postgres_data` and `metalops_uploads` persist database and uploaded PDF reports.
+  - **Automated Startup & Seeding:**
+    - Backend entrypoint script (`scripts/entrypoint.sh`) polls Postgres until ready, applies Alembic migrations, runs demo seeding when `SEED_DEMO=1`, and boots Uvicorn.
+    - Health checks configured on all three services (`postgres`, `backend`, `frontend`).
+  - **Stack Integration & Persistence Suite:**
+    - `compose.test.yaml` publishing Postgres to `127.0.0.1:5434` for test harness execution without port collision.
+    - `make stack-persistence`: script (`scripts/stack_persistence_test.py`) that uploads a report, tears down stack with `docker compose down`, boots stack with `docker compose up -d --wait`, downloads report, and verifies identical byte length and SHA-256 checksum.
+    - `make stack-test`: runs integration test suite against the live Compose stack via `BASE_URL=http://127.0.0.1:3000` and `TEST_DATABASE_URL=...:5434`.
 
 ---
 
-## 2. Deferred Items
+## 2. Deferred Items & Backlog
 
-- **Persistent Multi-Worker Sessions (Deferred from #11 to #13):**
-  - Session store is currently in-memory. Distributed session persistence (Redis or DB session table) to support multi-worker backend topology in production Compose stack.
-- **Production Cookie and Origin Hardening (Deferred to #13):**
-  - Enforce `secure=True` cookie flag when served over HTTPS, `X-Forwarded-Proto` proxy header handling, and Origin check for state-changing requests.
-- **Docker Compose Full Deployment (Deferred to #13):**
-  - Production `compose.yaml` with Nginx reverse proxy, PostgreSQL service, and named volumes for persistent uploaded files.
-- **#20 [P1] Missing GST settings fallback visibility (Backlog).**
-- **#21 [P1] Edit monthly fixed expenses in the UI (Backlog).**
-- **#22 [P1] Clarify break-even heats with provisional data (Backlog).**
+- **#14 [P0] CI: tests on every pull request**
+- **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
+- **#16 [P0] Observability for the key journey** (OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana)
+- **#17 [P0] Alert on user impact**
+- **#18 [P0] On-call agent**
+- **#19 [P0] Documentation and agent team**
+- **#20 [P1] Make missing GST settings fallback visible**
+- **#21 [P1] Edit monthly fixed expenses in the UI**
+- **#22 [P1] Clarify break-even heats with provisional data**
 
 ---
 
 ## 3. What is Next
 
-- **#13 [P0] Docker Compose for the full system**
-  - Dockerfiles for backend and frontend.
-  - `compose.yaml` combining Nginx (frontend static + reverse proxy `/api`), FastAPI backend, and PostgreSQL with named volumes.
-  - Auto-migration on startup.
-  - Persistence verification across `docker compose down` and `docker compose up`.
+- **Human Review of Issue #13**
+- Next issue in sequence: **#14 [P0] CI: tests on every pull request**
 
 ---
 
@@ -83,27 +90,34 @@ make dev
 - FastAPI backend on `http://127.0.0.1:8000`
 - Frontend on `http://127.0.0.1:5173`
 
+### Docker Compose Stack (PostgreSQL + Backend + Nginx Frontend)
+```bash
+# 1. Configure environment
+cp .env.example .env
+# Set OWNER_PASSWORD in .env (minimum 10 characters)
+
+# 2. Start full stack
+docker compose up --build
+```
+- Open browser at `http://127.0.0.1:3000`
+- Login with `owner@workshop.local` and demo password from `.env`
+
 ### Testing
 
-1. **Start the PostgreSQL test container:**
+1. **Integration tests against local PostgreSQL container (port 5433):**
    ```bash
    make test-db-up
-   ```
-2. **Run full test suite (Unit + Integration + Vitest + TypeScript):**
-   ```bash
    make test
+   make test-db-down
    ```
-3. **Run unit tests only:**
+2. **Unit tests only (Python + Vitest):**
    ```bash
    make test-unit
    ```
-4. **Stop and cleanup the PostgreSQL test container:**
+3. **Integration tests against Docker Compose stack:**
    ```bash
-   make test-db-down
+   make stack-up
+   make stack-test
+   make stack-persistence
+   make stack-down
    ```
-
-### Frontend Checks
-```bash
-make typecheck
-cd frontend && npm run build
-```
