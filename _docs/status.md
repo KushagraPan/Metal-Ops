@@ -36,10 +36,11 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
   - GitHub Actions workflow (`.github/workflows/ci.yml`) triggering on `pull_request` and `push` to `main`.
   - Top-level `permissions: contents: read` only; concurrency group cancels superseded runs.
   - Pinned actions to full SHAs with version comments (checkout, setup-python, setup-node, gitleaks, trivy).
-  - Parallel jobs: `supply-chain` (gitleaks, check_pins.py, npm audit, pip-audit), `backend` (Postgres 16.8 service container, make migrate, unit tests, integration tests), `frontend` (unit tests, typecheck, build), `docker` (backend & frontend image build + Trivy scan with `.trivyignore`), and aggregate `ci` gate job.
-  - Pinned base images bumped to latest patch: `python:3.11.12-slim-bookworm`, `nginx:1.27.5-alpine`, `postgres:16.8-alpine`.
+  - Parallel jobs: `supply-chain` (gitleaks, check_pins.py, npm audit, pip-audit), `backend` (Postgres 16.15 service container, make migrate, unit tests, integration tests), `frontend` (unit tests, typecheck, build), `docker` (backend & frontend image build + Trivy scan with `.trivyignore`), and aggregate `ci` gate job.
+  - Pinned base images bumped to latest patch: `python:3.11.18-slim-bookworm`, `node:22.23.4-alpine3.24`, `nginx:1.27.5-alpine`, `postgres:16.15-alpine`.
   - Upgraded vulnerable dependencies: `python-multipart==0.0.31`, `pytest==9.0.3`, `fastapi==0.162.4`, `starlette==1.3.1`.
   - `.trivyignore` pruned to retain only zero-fix upstream CVEs with documented package, severity, reason, and 90-day expiry.
+  - Removed pip internal build-time CycloneDX SBOM and ensurepip to eliminate phantom setuptools findings in container scanning.
 
 ---
 
@@ -58,12 +59,8 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 
 ## 3. What is Next
 
-<<<<<<< HEAD
 - **Human Review of Issue #14 PR**
 - Next issue in sequence: **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
-=======
-- Next issue in sequence: **#14 [P0] CI: tests on every pull request**
->>>>>>> origin/main
 
 ---
 
