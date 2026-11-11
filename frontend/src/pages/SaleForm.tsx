@@ -10,6 +10,7 @@ import type {
   SaleWrite,
 } from '../api/client'
 import { formatKg, formatMoney } from '../lib/format'
+import { CustomSelect, type SelectOption } from '../components/ui/CustomSelect'
 
 interface SaleFormProps {
   initial?: Sale | null
@@ -207,6 +208,22 @@ export default function SaleForm({
     [form.item_type, heats],
   )
 
+  const heatOptions: SelectOption[] = useMemo(() => {
+    const list: SelectOption[] = []
+    if (!isAlloyType(form.item_type)) {
+      list.push({ value: '', label: 'Unlinked byproduct sale' })
+    }
+    for (const heat of matchingHeats) {
+      list.push({
+        value: String(heat.id),
+        label: `${heat.heat_no} · ${heat.alloy} · ${formatKg(
+          String(availableFor(heat, initial, form.item_type)),
+        )} kg sellable`,
+      })
+    }
+    return list
+  }, [form.item_type, matchingHeats, initial])
+
   useEffect(() => {
     if (
       initial === null &&
@@ -371,19 +388,18 @@ export default function SaleForm({
               <label htmlFor="sale-item-type" className="app-label">
                 Item type
               </label>
-              <select
+              <CustomSelect
                 id="sale-item-type"
+                label="Item type"
                 value={form.item_type}
-                onChange={(event) =>
-                  changeItemType(event.target.value as ItemType)
-                }
-                className="app-input cursor-pointer"
-              >
-                <option value="ADC12">ADC12</option>
-                <option value="LM6">LM6</option>
-                <option value="DROSS">Dross</option>
-                <option value="IRON_SCRAP">Iron scrap</option>
-              </select>
+                options={[
+                  { value: 'ADC12', label: 'ADC12' },
+                  { value: 'LM6', label: 'LM6' },
+                  { value: 'DROSS', label: 'Dross' },
+                  { value: 'IRON_SCRAP', label: 'Iron scrap' },
+                ]}
+                onChange={(value) => changeItemType(value as ItemType)}
+              />
             </div>
 
             {/* Field 4: Heat */}
@@ -391,25 +407,18 @@ export default function SaleForm({
               <label htmlFor="sale-heat" className="app-label">
                 Heat
               </label>
-              <select
+              <CustomSelect
                 id="sale-heat"
+                label="Heat"
                 value={form.heat_id}
-                onChange={(event) => setField('heat_id', event.target.value)}
-                className="app-input cursor-pointer"
-              >
-                {!isAlloyType(form.item_type) ? (
-                  <option value="">Unlinked byproduct sale</option>
-                ) : null}
-                {matchingHeats.map((heat) => (
-                  <option key={heat.id} value={String(heat.id)}>
-                    {heat.heat_no} · {heat.alloy} ·{' '}
-                    {formatKg(
-                      String(availableFor(heat, initial, form.item_type)),
-                    )}{' '}
-                    kg sellable
-                  </option>
-                ))}
-              </select>
+                disabled={isAlloyType(form.item_type) && matchingHeats.length === 0}
+                options={
+                  heatOptions.length > 0
+                    ? heatOptions
+                    : [{ value: '', label: `No ${form.item_type} heats available` }]
+                }
+                onChange={(value) => setField('heat_id', value)}
+              />
 
               {/* 2. Inventory Helper Callout */}
               {selectedHeat !== null && isAlloyType(form.item_type) && (
@@ -492,17 +501,16 @@ export default function SaleForm({
               <label htmlFor="sale-gst-mode" className="app-label">
                 GST mode
               </label>
-              <select
+              <CustomSelect
                 id="sale-gst-mode"
+                label="GST mode"
                 value={form.gst_mode}
-                onChange={(event) =>
-                  setField('gst_mode', event.target.value as GstMode)
-                }
-                className="app-input cursor-pointer"
-              >
-                <option value="WITH">With GST</option>
-                <option value="WITHOUT">Without GST</option>
-              </select>
+                options={[
+                  { value: 'WITH', label: 'With GST' },
+                  { value: 'WITHOUT', label: 'Without GST' },
+                ]}
+                onChange={(value) => setField('gst_mode', value as GstMode)}
+              />
             </div>
 
             {/* Field 8: Transport mode */}
@@ -510,20 +518,19 @@ export default function SaleForm({
               <label htmlFor="sale-transport-mode" className="app-label">
                 Transport mode
               </label>
-              <select
+              <CustomSelect
                 id="sale-transport-mode"
+                label="Transport mode"
                 value={form.transport_mode}
-                onChange={(event) =>
-                  changeTransportMode(
-                    event.target.value as SaleTransportMode,
-                  )
+                options={[
+                  { value: 'CUSTOMER_ARRANGES', label: 'Customer arranges' },
+                  { value: 'WE_PAY_ABSORB', label: 'We pay and absorb' },
+                  { value: 'WE_PAY_BILL', label: 'We pay and bill' },
+                ]}
+                onChange={(value) =>
+                  changeTransportMode(value as SaleTransportMode)
                 }
-                className="app-input cursor-pointer"
-              >
-                <option value="CUSTOMER_ARRANGES">Customer arranges</option>
-                <option value="WE_PAY_ABSORB">We pay and absorb</option>
-                <option value="WE_PAY_BILL">We pay and bill</option>
-              </select>
+              />
             </div>
 
             {/* Field 9: Transport cost */}

@@ -138,7 +138,7 @@ export function CustomSelect({
         <ul
           role="listbox"
           aria-label={label}
-          className="shadow-dropdown absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-card border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+          className="shadow-dropdown absolute left-0 min-w-full w-max max-w-[min(100vw-2rem,36rem)] top-[calc(100%+6px)] z-50 max-h-60 overflow-y-auto rounded-card border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
         >
           {options.map((opt) => {
             const isSelected = opt.value === value
@@ -148,7 +148,7 @@ export function CustomSelect({
                 role="option"
                 aria-selected={isSelected}
                 onClick={() => handleSelect(opt.value)}
-                className={`cursor-pointer px-4 py-2.5 text-sm transition-colors ${
+                className={`cursor-pointer px-4 py-2.5 text-sm transition-colors whitespace-normal break-words sm:whitespace-nowrap ${
                   isSelected
                     ? 'bg-brand-500 font-medium text-white'
                     : 'text-slate-900 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800'

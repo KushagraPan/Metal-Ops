@@ -4,6 +4,7 @@ import { FileText, Upload } from 'lucide-react'
 
 import { api } from '../api/client'
 import type { Report, ReportResult } from '../api/client'
+import { CustomSelect } from '../components/ui/CustomSelect'
 
 interface HeatReportsProps {
   heatId: number
@@ -293,18 +294,17 @@ export default function HeatReports({
               <label htmlFor="edit-result" className="app-label">
                 Edit result
               </label>
-              <select
+              <CustomSelect
                 id="edit-result"
+                label="Edit result"
                 value={editResult}
-                onChange={(event) =>
-                  setEditResult(event.target.value as ReportResult)
-                }
-                className="app-input cursor-pointer"
-              >
-                <option value="PENDING">Pending</option>
-                <option value="PASS">Pass</option>
-                <option value="FAIL">Fail</option>
-              </select>
+                options={[
+                  { value: 'PENDING', label: 'Pending' },
+                  { value: 'PASS', label: 'Pass' },
+                  { value: 'FAIL', label: 'Fail' },
+                ]}
+                onChange={(value) => setEditResult(value as ReportResult)}
+              />
             </div>
             <div className="flex flex-col">
               <label htmlFor="edit-notes" className="app-label">
@@ -407,18 +407,17 @@ export default function HeatReports({
               >
                 Result
               </label>
-              <select
+              <CustomSelect
                 id="upload-result"
+                label="Result"
                 value={result}
-                onChange={(event) =>
-                  setResult(event.target.value as ReportResult)
-                }
-                className="app-input cursor-pointer"
-              >
-                <option value="PENDING">Pending</option>
-                <option value="PASS">Pass</option>
-                <option value="FAIL">Fail</option>
-              </select>
+                options={[
+                  { value: 'PENDING', label: 'Pending' },
+                  { value: 'PASS', label: 'Pass' },
+                  { value: 'FAIL', label: 'Fail' },
+                ]}
+                onChange={(value) => setResult(value as ReportResult)}
+              />
             </div>
 
             {/* Field 4: Notes (Single-line input, h-10) */}

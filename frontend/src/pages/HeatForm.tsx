@@ -13,6 +13,7 @@ import {
   formatOptionalMoney,
   formatOptionalPercent,
 } from '../lib/format'
+import { CustomSelect } from '../components/ui/CustomSelect'
 
 interface HeatFormProps {
   initial?: Heat | null
@@ -312,18 +313,20 @@ export default function HeatForm({
             />
           </label>
 
-          <label className="field">
+          <div className="field">
             <span>Alloy</span>
-            <select
+            <CustomSelect
+              label="Alloy"
               value={form.alloy}
-              onChange={(event) =>
-                setField('alloy', event.target.value as Alloy)
+              options={[
+                { value: 'ADC12', label: 'ADC12' },
+                { value: 'LM6', label: 'LM6' },
+              ]}
+              onChange={(value) =>
+                setField('alloy', value as Alloy)
               }
-            >
-              <option value="ADC12">ADC12</option>
-              <option value="LM6">LM6</option>
-            </select>
-          </label>
+            />
+          </div>
 
           <label className="field">
             <span>Duration (hours)</span>
@@ -477,21 +480,20 @@ export default function HeatForm({
           ) : (
             form.inputs.map((row, index) => (
               <div className="input-line" key={index}>
-                <label className="field">
+                <div className="field">
                   <span>Lot {index + 1}</span>
-                  <select
+                  <CustomSelect
+                    label={`Lot ${index + 1}`}
                     value={row.lot_id}
-                    onChange={(event) =>
-                      setInput(index, 'lot_id', event.target.value)
+                    options={lots.map((lot) => ({
+                      value: String(lot.id),
+                      label: lotLabel(lot),
+                    }))}
+                    onChange={(value) =>
+                      setInput(index, 'lot_id', value)
                     }
-                  >
-                    {lots.map((lot) => (
-                      <option key={lot.id} value={String(lot.id)}>
-                        {lotLabel(lot)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  />
+                </div>
 
                 <label className="field">
                   <span>Input kg {index + 1}</span>

@@ -16,6 +16,7 @@ import {
 } from '../lib/format'
 import HeatDetail from './HeatDetail'
 import HeatForm from './HeatForm'
+import { CustomSelect } from '../components/ui/CustomSelect'
 
 interface FilterState {
   from_date: string
@@ -225,40 +226,44 @@ export default function HeatsPage() {
             />
           </label>
 
-          <label className="field">
+          <div className="field">
             <span>Alloy</span>
-            <select
+            <CustomSelect
+              label="Alloy"
               value={filters.alloy}
-              onChange={(event) =>
+              options={[
+                { value: '', label: 'All alloys' },
+                { value: 'ADC12', label: 'ADC12' },
+                { value: 'LM6', label: 'LM6' },
+              ]}
+              onChange={(value) =>
                 setFilters((current) => ({
                   ...current,
-                  alloy: event.target.value as '' | Alloy,
+                  alloy: value as '' | Alloy,
                 }))
               }
-            >
-              <option value="">All alloys</option>
-              <option value="ADC12">ADC12</option>
-              <option value="LM6">LM6</option>
-            </select>
-          </label>
+            />
+          </div>
 
-          <label className="field">
+          <div className="field">
             <span>Report result</span>
-            <select
+            <CustomSelect
+              label="Report result"
               value={filters.report_result}
-              onChange={(event) =>
+              options={[
+                { value: '', label: 'Any report result' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'PASS', label: 'Pass' },
+                { value: 'FAIL', label: 'Fail' },
+              ]}
+              onChange={(value) =>
                 setFilters((current) => ({
                   ...current,
-                  report_result: event.target.value as '' | ReportResult,
+                  report_result: value as '' | ReportResult,
                 }))
               }
-            >
-              <option value="">Any report result</option>
-              <option value="PENDING">Pending</option>
-              <option value="PASS">Pass</option>
-              <option value="FAIL">Fail</option>
-            </select>
-          </label>
+            />
+          </div>
 
           <label className="field">
             <span>Heat number</span>
