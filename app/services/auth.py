@@ -7,6 +7,7 @@ import hmac
 import os
 import secrets
 import time
+from pathlib import Path
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
@@ -151,11 +152,29 @@ class LoginRateLimiter:
 login_rate_limiter = LoginRateLimiter()
 
 
+def load_dotenv_if_present() -> None:
+    """Read .env into os.environ if present and not already defined in environment."""
+    env_file = Path(".env")
+    if env_file.is_file():
+        try:
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, _, v = line.partition("=")
+                k, v = k.strip(), v.strip()
+                if k and k not in os.environ:
+                    os.environ[k] = v
+        except Exception:
+            pass
+
+
 def ensure_owner_account(session: Session) -> User | None:
     """Create or return owner account configured in environment variables.
 
     Refuses to create an owner account if password or email is empty or unset.
     """
+    load_dotenv_if_present()
     owner_email = os.getenv("OWNER_EMAIL")
     if not owner_email or not owner_email.strip():
         return None
