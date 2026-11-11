@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Flame, Lock, Mail } from 'lucide-react'
+import { Flame } from 'lucide-react'
 
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 
 interface LoginPageProps {
   onLoginSuccess: (user: { id: number; email: string }) => void

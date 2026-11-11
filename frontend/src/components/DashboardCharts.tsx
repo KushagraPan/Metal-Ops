@@ -29,8 +29,9 @@ interface ProfitChartProps {
 }
 
 export function ProfitChart({ heats }: ProfitChartProps) {
-  // Omit heats with null profit
-  const data = heats
+  // Oldest heat on the left; omit heats with null profit
+  const data = [...heats]
+    .reverse()
     .filter((h) => h.heat_profit !== null)
     .map((h) => ({
       heat_no: h.heat_no,
@@ -44,7 +45,7 @@ export function ProfitChart({ heats }: ProfitChartProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold">Profit per Heat</CardTitle>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            * = provisional
+            Dashed outline = provisional
           </span>
         </div>
         <CardDescription>
@@ -53,7 +54,7 @@ export function ProfitChart({ heats }: ProfitChartProps) {
       </CardHeader>
       <CardContent className="flex-1 pb-4">
         {data.length === 0 ? (
-          <div className="flex h-56 items-center justify-center text-sm text-slate-400">
+          <div className="flex h-56 items-center justify-center text-sm text-slate-500 dark:text-slate-400">
             No profit data recorded for heats in this month.
           </div>
         ) : (
@@ -82,13 +83,19 @@ export function ProfitChart({ heats }: ProfitChartProps) {
                   content={({ active, payload }) => {
                     if (active && payload && payload.length && payload[0]?.payload) {
                       const item = payload[0].payload
+                      const profitColor =
+                        item.profit > 0
+                          ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                          : item.profit < 0
+                            ? 'text-rose-600 dark:text-rose-400 font-medium'
+                            : 'text-slate-600 dark:text-slate-300 font-medium'
                       return (
                         <div className="rounded-md border border-slate-200 bg-white p-2 text-xs shadow-md dark:border-slate-800 dark:bg-slate-900">
                           <p className="font-semibold text-slate-900 dark:text-slate-100">
                             {item.heat_no}
                             {item.is_provisional ? ' (Provisional)' : ''}
                           </p>
-                          <p className={item.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-rose-600 dark:text-rose-400 font-medium'}>
+                          <p className={profitColor}>
                             Profit: {formatMoneyWhole(item.profit)}
                           </p>
                         </div>
@@ -99,8 +106,12 @@ export function ProfitChart({ heats }: ProfitChartProps) {
                 />
                 <Bar dataKey="profit" radius={[3, 3, 0, 0]}>
                   {data.map((entry, index) => {
-                    const isPositive = entry.profit >= 0
-                    const fillColor = isPositive ? '#059669' : '#e11d48'
+                    const fillColor =
+                      entry.profit > 0
+                        ? '#059669'
+                        : entry.profit < 0
+                          ? '#e11d48'
+                          : '#64748b'
                     return (
                       <Cell
                         key={`bar-${index}`}
@@ -154,8 +165,9 @@ interface YieldChartProps {
 }
 
 export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
-  // Omit heats with null yield
-  const data = heats
+  // Oldest heat on the left; omit heats with null yield
+  const data = [...heats]
+    .reverse()
     .filter((h) => h.yield_pct !== null)
     .map((h) => ({
       heat_no: h.heat_no,
@@ -164,6 +176,13 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
     }))
 
   const plannedNum = Number(plannedYieldPct)
+  const yDomain: [((min: number) => number) | 'auto', ((max: number) => number) | 'auto'] =
+    data.length > 0 && !isNaN(plannedNum)
+      ? [
+          (dataMin: number) => Math.floor(Math.min(dataMin, plannedNum) - 1),
+          (dataMax: number) => Math.ceil(Math.max(dataMax, plannedNum) + 1),
+        ]
+      : ['auto', 'auto']
 
   return (
     <Card className="flex flex-col">
@@ -180,7 +199,7 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
       </CardHeader>
       <CardContent className="flex-1 pb-4">
         {data.length === 0 ? (
-          <div className="flex h-56 items-center justify-center text-sm text-slate-400">
+          <div className="flex h-56 items-center justify-center text-sm text-slate-500 dark:text-slate-400">
             No yield data recorded for heats in this month.
           </div>
         ) : (
@@ -202,7 +221,7 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
                   tick={{ fontSize: 11 }}
                   tickLine={false}
                   axisLine={{ stroke: '#94a3b8' }}
-                  domain={['auto', 'auto']}
+                  domain={yDomain}
                   tickFormatter={(val) => `${val}%`}
                 />
                 <ReferenceLine
@@ -240,7 +259,7 @@ export function YieldChart({ heats, plannedYieldPct }: YieldChartProps) {
                   }}
                 />
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey="yield_pct"
                   stroke="#f59e0b"
                   strokeWidth={2}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -19,6 +20,8 @@ from app.routers import (
 )
 from app.services.auth import ensure_owner_account
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,8 +29,8 @@ async def lifespan(app: FastAPI):
     try:
         with SessionLocal() as session:
             ensure_owner_account(session)
-    except Exception:
-        pass
+    except Exception as error:
+        logger.exception("Failed to bootstrap owner account: %s", error)
     yield
 
 

@@ -201,7 +201,7 @@ export default function App() {
                 onClick={() => setPage(id)}
                 className={`flex flex-col items-center justify-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
-                    ? 'text-amber-600 dark:text-amber-400 font-bold'
+                    ? 'text-amber-800 dark:text-amber-400 font-bold'
                     : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
                 }`}
               >

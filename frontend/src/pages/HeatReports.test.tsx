@@ -19,6 +19,7 @@ vi.mock('../api/client', () => ({
       upload: vi.fn(),
       update: vi.fn(),
       remove: vi.fn(),
+      download: vi.fn(),
       downloadUrl: vi.fn(),
     },
   },
@@ -49,14 +50,31 @@ afterEach(() => {
 })
 
 describe('HeatReports', () => {
-  it('lists reports with result, notes and a download link', () => {
+  it('lists reports with result, notes and a download button', () => {
     render(<HeatReports heatId={4} reports={[report]} />)
 
     expect(screen.getByText('S-1')).toBeDefined()
     expect(within(screen.getByRole('table')).getByText('Pass')).toBeDefined()
     expect(screen.getByText('Looks good')).toBeDefined()
-    const link = screen.getByRole('link', { name: 'Download report S-1' })
-    expect(link.getAttribute('href')).toBe('/api/reports/7/download')
+    const downloadBtn = screen.getByRole('button', { name: 'Download report S-1' })
+    expect(downloadBtn).toBeDefined()
+  })
+
+  it('downloads a report through the API client', async () => {
+    const dummyBlob = new Blob(['dummy pdf'], { type: 'application/pdf' })
+    vi.mocked(api.reports.download).mockResolvedValue(dummyBlob)
+    const createObjectURLSpy = vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:http://localhost/dummy')
+    const revokeObjectURLSpy = vi.spyOn(window.URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    render(<HeatReports heatId={4} reports={[report]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download report S-1' }))
+
+    await waitFor(() => {
+      expect(api.reports.download).toHaveBeenCalledWith(7)
+    })
+    expect(createObjectURLSpy).toHaveBeenCalledWith(dummyBlob)
+    expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:http://localhost/dummy')
   })
 
   it('uploads a report and adds it to the list', async () => {

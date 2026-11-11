@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import os
 import secrets
 import time
@@ -14,11 +15,16 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.repositories.users import UserRepository
 
+logger = logging.getLogger(__name__)
+
 # Session timeout limits (documented):
 # - IDLE_TIMEOUT_SECONDS: Revoked after 30 minutes (1,800s) of inactivity.
 # - ABSOLUTE_TIMEOUT_SECONDS: Revoked after 12 hours (43,200s) maximum lifetime regardless of activity.
 DEFAULT_IDLE_TIMEOUT_SECONDS: float = 1800.0
 DEFAULT_ABSOLUTE_TIMEOUT_SECONDS: float = 43200.0
+
+# Pre-computed dummy hash to prevent timing attacks / user enumeration when email does not exist
+DUMMY_PASSWORD_HASH: str = "scrypt$0123456789abcdef0123456789abcdef$0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 
 @dataclass
@@ -193,7 +199,11 @@ def ensure_owner_account(session: Session) -> User | None:
         if raw_pwd is None or not raw_pwd.strip():
             # Refuse to create owner account from an empty password
             return None
-        pwd_hash = hash_password(raw_pwd.strip())
+        raw_pwd = raw_pwd.strip()
+        if len(raw_pwd) < 10:
+            logger.warning("OWNER_PASSWORD rejected: must be at least 10 characters.")
+            return None
+        pwd_hash = hash_password(raw_pwd)
 
     user = repo.create(email=owner_email.strip(), password_hash=pwd_hash)
     session.commit()
@@ -215,7 +225,11 @@ class AuthService:
 
     def authenticate(self, email: str, password: str) -> tuple[User, str]:
         user = self.users.get_by_email(email)
-        if user is None or not verify_password(password, user.password_hash):
+        if user is None:
+            # Perform dummy verification so timing does not leak whether email exists
+            verify_password(password, DUMMY_PASSWORD_HASH)
+            raise InvalidCredentials("Invalid email or password.")
+        if not verify_password(password, user.password_hash):
             raise InvalidCredentials("Invalid email or password.")
         session_id = session_store.create(user.id)
         return user, session_id

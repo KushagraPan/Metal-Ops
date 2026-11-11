@@ -367,6 +367,22 @@ export const api = {
       request<void>(`/api/reports/${id}`, { method: 'DELETE' }),
     downloadUrl: (id: number): string =>
       apiUrl(`/api/reports/${id}/download`),
+    download: async (id: number): Promise<Blob> => {
+      const response = await fetch(apiUrl(`/api/reports/${id}/download`), {
+        credentials: 'include',
+      })
+      if (!response.ok) {
+        if (response.status === 401 && onUnauthorizedHandler) {
+          try {
+            onUnauthorizedHandler()
+          } catch {
+            // Prevent handler errors from masking ApiError
+          }
+        }
+        throw new ApiError(response.status, await responseMessage(response))
+      }
+      return response.blob()
+    },
   },
   sales: {
     list: (): Promise<Sale[]> => request<Sale[]>('/api/sales'),

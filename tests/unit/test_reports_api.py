@@ -15,7 +15,7 @@ from app.db import get_session, make_engine
 from app.main import app, create_app
 from app.models import Alloy, Base, Heat, ReportResult, Setting, SpectroReport
 from app.models.user import User
-from app.routers.auth import require_session
+from app.services.auth import hash_password
 from app.services.reports import ReportService, ReportStorageError
 from app.storage import LocalStorage, StorageError, get_storage
 
@@ -358,6 +358,19 @@ def test_stored_file_survives_a_new_app_instance(
     created = upload_report(client, heat["id"]).json()
     assert len(stored_files(storage_root)) == 1
 
+    # Ensure user exists for authentication with the restarted instance
+    with session_factory() as session:
+        user = session.query(User).filter_by(id=1).first()
+        if user is None:
+            session.add(
+                User(
+                    id=1,
+                    email="unit-test@workshop.local",
+                    password_hash=hash_password("RealPassword123"),
+                )
+            )
+            session.commit()
+
     restarted = create_app()
 
     def override_get_session() -> Iterator[Session]:
@@ -369,11 +382,17 @@ def test_stored_file_survives_a_new_app_instance(
 
     restarted.dependency_overrides[get_session] = override_get_session
     restarted.dependency_overrides[get_storage] = override_get_storage
-    restarted.dependency_overrides[require_session] = lambda: User(
-        id=1, email="unit-test@workshop.local", password_hash="dummy_hash"
-    )
     try:
         with TestClient(restarted) as new_client:
+            # Authenticate via real login flow
+            login_res = new_client.post(
+                "/api/auth/login",
+                json={
+                    "email": "unit-test@workshop.local",
+                    "password": "RealPassword123",
+                },
+            )
+            assert login_res.status_code == 200, login_res.text
             response = new_client.get(
                 f"/api/reports/{created['id']}/download"
             )

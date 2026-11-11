@@ -222,6 +222,12 @@ Acceptance criteria:
 - `docker compose up` starts frontend, backend and Postgres with no manual steps; migrations run on start.
 - The README documents the command, ports and the demo login.
 - Uploaded files persist across `docker compose down` and `up`.
+- Production security and multi-worker session hardening (deferred from #11):
+  - Sessions in memory: migrate to a persistent session store (Redis or database table) so multiple backend workers share session state.
+  - Secure cookie and CORS/Origin: set `secure=True` on session cookies under HTTPS/production and enforce strict CORS and Origin header verification for SPA requests.
+  - Public `/docs`: restrict `/docs`, `/redoc`, and `/openapi.json` behind session authentication or disable them in production environments.
+  - Password hashing cost: increase scrypt cost parameters (`n=2^17`, `r=8`, `p=1`) in production per OWASP guidelines.
+  - Account lockout: implement IP or account-level lockout / progressive delay after repeated consecutive login failures.
 
 Tests: the integration suite passes against the Compose stack.
 

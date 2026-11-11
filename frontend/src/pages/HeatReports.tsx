@@ -131,6 +131,23 @@ export default function HeatReports({
     }
   }
 
+  async function handleDownload(report: Report): Promise<void> {
+    setError(null)
+    try {
+      const blob = await api.reports.download(report.id)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = report.original_filename || `report-${report.sample_no}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (downloadError) {
+      setError(messageOf(downloadError))
+    }
+  }
+
   async function handleDelete(report: Report): Promise<void> {
     if (!window.confirm(`Delete report ${report.sample_no}?`)) {
       return
@@ -226,12 +243,15 @@ export default function HeatReports({
                     </span>
                   </td>
                   <td className="actions">
-                    <a
-                      href={api.reports.downloadUrl(report.id)}
+                    <button
+                      type="button"
                       aria-label={`Download report ${report.sample_no}`}
+                      onClick={() => {
+                        void handleDownload(report)
+                      }}
                     >
                       Download
-                    </a>
+                    </button>
                     <button
                       type="button"
                       aria-label={`Edit report ${report.sample_no}`}

@@ -106,6 +106,8 @@
 .page {
   display: grid;
   gap: 1.5rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .page-header {
@@ -113,6 +115,8 @@
   justify-content: space-between;
   align-items: flex-end;
   gap: 1rem;
+  min-width: 0;
+  width: 100%;
 }
 
 h1 {
@@ -145,10 +149,17 @@ h3 {
   border-radius: 0.75rem;
   padding: 1.25rem;
   color: hsl(var(--card-foreground));
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
 }
 
 .table-wrap {
   overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 table {
@@ -363,6 +374,14 @@ td.actions button.danger:hover {
   grid-template-columns: minmax(14rem, 1fr) minmax(9rem, 12rem) auto;
   gap: 0.75rem;
   align-items: end;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .input-line {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
 }
 
 .actions {

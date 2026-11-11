@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { api, setOnUnauthorized } from './api/client'
+import { api } from './api/client'
 import App from './App'
 
 vi.mock('./api/client', async () => {
@@ -84,8 +84,10 @@ describe('App authentication integration', () => {
     })
 
     // Logging out calls logout endpoint and returns to login page
-    vi.mocked(api.auth.logout).mockResolvedValueOnce({ ok: true })
-    const logoutBtn = screen.getAllByRole('button', { name: /log out/i })[0]
+    vi.mocked(api.auth.logout).mockResolvedValueOnce(undefined)
+    const logoutButtons = screen.getAllByRole('button', { name: /log out/i })
+    expect(logoutButtons.length).toBeGreaterThan(0)
+    const logoutBtn = logoutButtons[0]!
     fireEvent.click(logoutBtn)
 
     await waitFor(() => {

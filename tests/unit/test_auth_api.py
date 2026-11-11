@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import time
@@ -337,4 +338,83 @@ def test_cookie_flags_httponly_samesite_and_secure_on_https(
     assert "httponly" in cookie_header_https
     assert "samesite=lax" in cookie_header_https
     assert "secure" in cookie_header_https
+
+
+def test_login_timing_ratio_between_unknown_email_and_wrong_password(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    with session_factory() as session:
+        user = User(
+            email="known@metalops.test",
+            password_hash=hash_password("LongSecretPassword123"),
+        )
+        session.add(user)
+        session.commit()
+
+    # Measure wrong password for known user
+    t0 = time.perf_counter()
+    for _ in range(3):
+        client.post(
+            "/api/auth/login",
+            json={"email": "known@metalops.test", "password": "wrongpassword"},
+        )
+    t_wrong = time.perf_counter() - t0
+
+    # Measure unknown user
+    t0 = time.perf_counter()
+    for _ in range(3):
+        client.post(
+            "/api/auth/login",
+            json={"email": "unknown@metalops.test", "password": "wrongpassword"},
+        )
+    t_unknown = time.perf_counter() - t0
+
+    ratio = t_unknown / t_wrong
+    assert 0.4 <= ratio <= 2.5, f"Timing ratio {ratio:.2f} is outside [0.4, 2.5] (t_unknown={t_unknown:.4f}s, t_wrong={t_wrong:.4f}s)"
+
+
+def test_owner_password_shorter_than_10_characters_is_rejected(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OWNER_EMAIL", "owner@workshop.local")
+    monkeypatch.setenv("OWNER_PASSWORD", "short9ch")
+    with session_factory() as session:
+        result = ensure_owner_account(session)
+        assert result is None, "Should reject OWNER_PASSWORD shorter than 10 chars"
+
+
+def test_owner_password_10_characters_or_longer_is_accepted(
+    session_factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OWNER_EMAIL", "owner@workshop.local")
+    monkeypatch.setenv("OWNER_PASSWORD", "exact10chr")
+    with session_factory() as session:
+        result = ensure_owner_account(session)
+        assert result is not None
+        assert result.email == "owner@workshop.local"
+
+
+def test_lifespan_logs_bootstrap_errors(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from app.main import lifespan, create_app
+    import contextlib
+
+    def failing_ensure(session):
+        raise RuntimeError("Database connection exploded during bootstrap")
+
+    monkeypatch.setattr("app.main.ensure_owner_account", failing_ensure)
+
+    test_app = create_app()
+    with caplog.at_level(logging.ERROR):
+        # Trigger lifespan
+        with TestClient(test_app):
+            pass
+
+    assert any(
+        "Failed to bootstrap owner account" in r.message
+        for r in caplog.records
+    )
+
+
 

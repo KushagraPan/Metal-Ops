@@ -175,12 +175,12 @@ export default function SalesPage() {
               <tbody>
                 {sales.map((sale) => (
                   <tr key={sale.id}>
-                    <td>{sale.sale_date}</td>
+                    <td className="whitespace-nowrap">{sale.sale_date}</td>
                     <td>
                       <strong>{sale.customer}</strong>
                     </td>
                     <td>{itemLabel(sale.item_type)}</td>
-                    <td>{heatLabel(sale.heat_id)}</td>
+                    <td className="whitespace-nowrap">{heatLabel(sale.heat_id)}</td>
                     <td className="numeric">{formatKg(sale.weight_kg)}</td>
                     <td className="numeric">
                       {formatMoney(sale.rate_per_kg)}
@@ -195,7 +195,7 @@ export default function SalesPage() {
                       {formatOptionalMoney(sale.revenue)}
                     </td>
                     <td>{transportLabel(sale)}</td>
-                    <td className="actions">
+                    <td className="actions whitespace-nowrap">
                       <button
                         type="button"
                         aria-label={`Edit sale to ${sale.customer}`}

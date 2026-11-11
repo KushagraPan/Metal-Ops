@@ -120,10 +120,11 @@ describe('DashboardPage', () => {
     expect(profitCard).not.toBeNull()
     expect(within(profitCard!).getByText('provisional')).toBeDefined()
 
-    // Break-even card shows "3 heats (break-even: n/a)" and provisional note
+    // Break-even card shows "3 heats", "(break-even: n/a)" and provisional note
     const breakEvenCard = screen.getByText('Break-even progress').closest('div')
     expect(breakEvenCard).not.toBeNull()
-    expect(within(breakEvenCard!).getByText(/3 heats \(break-even: n\/a\)/i)).toBeDefined()
+    expect(within(breakEvenCard!).getByText('3 heats')).toBeDefined()
+    expect(within(breakEvenCard!).getByText('(break-even: n/a)')).toBeDefined()
     expect(within(breakEvenCard!).getByText('provisional')).toBeDefined()
 
     // GST estimate card

@@ -226,9 +226,11 @@ export default function DashboardPage({
               <CardContent>
                 <div
                   className={`text-2xl font-bold tabular-nums ${
-                    Number(data.profit) >= 0
+                    Number(data.profit) > 0
                       ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-rose-600 dark:text-rose-400'
+                      : Number(data.profit) < 0
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-slate-900 dark:text-slate-100'
                   }`}
                 >
                   {formatMoneyWhole(data.profit)}
@@ -301,12 +303,15 @@ export default function DashboardPage({
                 <Flame className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
-                  {data.break_even_heats !== null ? (
-                    `${data.heats_count} of ${Math.ceil(Number(data.break_even_heats))} heats`
-                  ) : (
-                    `${data.heats_count} heats (break-even: n/a)`
-                  )}
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
+                    {data.heats_count} {data.heats_count === 1 ? 'heat' : 'heats'}
+                  </span>
+                  <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {data.break_even_heats !== null
+                      ? `(${data.heats_count} of ${Math.ceil(Number(data.break_even_heats))} heats)`
+                      : '(break-even: n/a)'}
+                  </span>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <span>To cover {formatMoneyWhole(data.expenses_total)} fixed costs</span>
@@ -478,7 +483,7 @@ export default function DashboardPage({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {data.expenses.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 italic">
                       No fixed expenses recorded for this month.
                     </p>
                   ) : (

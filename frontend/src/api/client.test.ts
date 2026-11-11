@@ -68,4 +68,22 @@ describe('api client', () => {
 
     setOnUnauthorized(null)
   })
+
+  it('triggers setOnUnauthorized callback when downloading report returns 401', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Authentication required.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const onUnauthorized = vi.fn()
+    setOnUnauthorized(onUnauthorized)
+
+    await expect(api.reports.download(42)).rejects.toThrow('Authentication required.')
+    expect(onUnauthorized).toHaveBeenCalledOnce()
+
+    setOnUnauthorized(null)
+  })
 })
