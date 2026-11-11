@@ -189,6 +189,13 @@ Acceptance criteria:
 - All `/api` routes except login and health return 401 without a session.
 - Passwords are stored hashed.
 - Logout invalidates the session.
+- A login page (email and password) is shown when there is no session. After login the app shows the dashboard. A logout button is always visible.
+- Any 401 from the API during use returns the user to the login page without a crash or a stuck spinner.
+- A test walks the full OpenAPI route list and asserts 401 without a session for every route except /api/health and /api/auth/login, so a new unprotected route fails the suite. Existing tests may bypass auth only via the conftest fixture, and that fixture must not apply to the new test.
+- Sessions expire (idle and absolute limits, documented) and are rejected after expiry.
+- The app refuses to create an owner account from an empty password, and .env.example contains placeholders only, never real values.
+- Failed logins return the same message for unknown email and wrong password, and repeated failures are rate limited.
+- Cookie flags: HttpOnly, SameSite=Lax, Secure when served over HTTPS (documented for #13).
 
 Tests: 401 on each protected route group; login and logout flow.
 
