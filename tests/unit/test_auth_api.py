@@ -1,6 +1,8 @@
+import hashlib
 import logging
 import os
 import re
+import secrets
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -194,7 +196,7 @@ def test_full_openapi_route_list_asserts_401_without_session(client: TestClient)
     paths = schema.get("paths", {})
     assert paths, "OpenAPI schema must have paths"
 
-    exempt_paths = {"/api/health", "/api/auth/login"}
+    exempt_paths = {"/api/health", "/api/ready", "/api/auth/login"}
 
     for path, path_item in paths.items():
         if path in exempt_paths:
@@ -415,6 +417,33 @@ def test_lifespan_logs_bootstrap_errors(
         "Failed to bootstrap owner account" in r.message
         for r in caplog.records
     )
+
+
+def test_scrypt_cost_new_hash_uses_131072_and_old_16384_verifies() -> None:
+    # 1. New hash uses n=131072 (2^17)
+    password = "CorrectHorseBatteryStaple10#"
+    new_hash = hash_password(password)
+    parts = new_hash.split("$")
+    assert parts[0] == "scrypt"
+    assert parts[1] == "131072"
+    assert parts[2] == "8"
+    assert parts[3] == "1"
+    assert verify_password(password, new_hash) is True
+    assert verify_password("WrongPassword123", new_hash) is False
+
+    # 2. Old hash with stored n=16384 verifies correctly
+    old_hash_with_params = hash_password(password, n=16384)
+    assert old_hash_with_params.split("$")[1] == "16384"
+    assert verify_password(password, old_hash_with_params) is True
+    assert verify_password("WrongPassword123", old_hash_with_params) is False
+
+    # 3. Legacy 3-part hash without parameters verifies with default n=16384
+    salt = secrets.token_bytes(16)
+    key = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=16384, r=8, p=1)
+    legacy_hash = f"scrypt${salt.hex()}${key.hex()}"
+    assert verify_password(password, legacy_hash) is True
+    assert verify_password("WrongPassword123", legacy_hash) is False
+
 
 
 

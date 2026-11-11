@@ -24,7 +24,17 @@ DEFAULT_IDLE_TIMEOUT_SECONDS: float = 1800.0
 DEFAULT_ABSOLUTE_TIMEOUT_SECONDS: float = 43200.0
 
 # Pre-computed dummy hash to prevent timing attacks / user enumeration when email does not exist
-DUMMY_PASSWORD_HASH: str = "scrypt$0123456789abcdef0123456789abcdef$0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+DUMMY_PASSWORD_HASH: str = (
+    "scrypt$131072$8$1$0123456789abcdef0123456789abcdef$"
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+)
+
+DEFAULT_SCRYPT_N: int = 131072  # 2^17 per OWASP guidelines for new hashes
+DEFAULT_SCRYPT_R: int = 8
+DEFAULT_SCRYPT_P: int = 1
+# OpenSSL scrypt default maxmem is 32 MB; n=131072 requires 128 MB working memory.
+SCRYPT_MAXMEM: int = 256 * 1024 * 1024
 
 
 @dataclass
@@ -34,22 +44,64 @@ class SessionData:
     last_accessed_at: float
 
 
-def hash_password(password: str) -> str:
-    """Hash password using scrypt with a random 16-byte salt."""
+def hash_password(
+    password: str,
+    n: int = DEFAULT_SCRYPT_N,
+    r: int = DEFAULT_SCRYPT_R,
+    p: int = DEFAULT_SCRYPT_P,
+) -> str:
+    """Hash password using scrypt with a random 16-byte salt and embedded cost parameters."""
     salt = secrets.token_bytes(16)
-    key = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=16384, r=8, p=1)
-    return f"scrypt${salt.hex()}${key.hex()}"
+    key = hashlib.scrypt(
+        password.encode("utf-8"),
+        salt=salt,
+        n=n,
+        r=r,
+        p=p,
+        maxmem=SCRYPT_MAXMEM,
+    )
+    return f"scrypt${n}${r}${p}${salt.hex()}${key.hex()}"
 
 
 def verify_password(password: str, password_hash: str) -> bool:
     """Verify password against scrypt or pbkdf2 hash using constant-time comparison."""
     try:
         parts = password_hash.split("$")
-        if len(parts) == 3 and parts[0] == "scrypt":
-            salt = bytes.fromhex(parts[1])
-            expected = bytes.fromhex(parts[2])
+        if parts[0] == "scrypt":
+            if len(parts) == 6:
+                # scrypt$n$r$p$salt$hash
+                n = int(parts[1])
+                r = int(parts[2])
+                p = int(parts[3])
+                salt = bytes.fromhex(parts[4])
+                expected = bytes.fromhex(parts[5])
+            elif len(parts) == 4 and ("n=" in parts[1] or "r=" in parts[1]):
+                # scrypt$n=16384,r=8,p=1$salt$hash
+                params = dict(
+                    item.split("=") for item in parts[1].split(",") if "=" in item
+                )
+                n = int(params.get("n", 16384))
+                r = int(params.get("r", 8))
+                p = int(params.get("p", 1))
+                salt = bytes.fromhex(parts[2])
+                expected = bytes.fromhex(parts[3])
+            elif len(parts) == 3:
+                # Legacy 3-part format: scrypt$salt$hash (implicitly n=16384, r=8, p=1)
+                n = 16384
+                r = 8
+                p = 1
+                salt = bytes.fromhex(parts[1])
+                expected = bytes.fromhex(parts[2])
+            else:
+                return False
+
             computed = hashlib.scrypt(
-                password.encode("utf-8"), salt=salt, n=16384, r=8, p=1
+                password.encode("utf-8"),
+                salt=salt,
+                n=n,
+                r=r,
+                p=p,
+                maxmem=SCRYPT_MAXMEM,
             )
             return hmac.compare_digest(expected, computed)
         elif len(parts) == 3 and parts[0] == "pbkdf2_sha256":
