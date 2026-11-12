@@ -21,11 +21,13 @@ Exercising the end-to-end alert loop:
 from __future__ import annotations
 
 import argparse
+import base64
 import io
 import json
 import logging
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -186,7 +188,92 @@ def start_webhook_server(port: int = 9999) -> HTTPServer:
     return server
 
 
-def capture_screenshot(url: str, output_path: Path) -> bool:
+def _ws_connect(url: str) -> socket.socket:
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    host, port = parsed.hostname, parsed.port
+    path = parsed.path
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((host, port))
+    key = base64.b64encode(os.urandom(16)).decode()
+    req = (
+        f"GET {path} HTTP/1.1\r\n"
+        f"Host: {host}:{port}\r\n"
+        f"Upgrade: websocket\r\n"
+        f"Connection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: {key}\r\n"
+        f"Sec-WebSocket-Version: 13\r\n\r\n"
+    )
+    s.sendall(req.encode())
+    resp = b""
+    while b"\r\n\r\n" not in resp:
+        chunk = s.recv(1024)
+        if not chunk:
+            break
+        resp += chunk
+    if b"101 " not in resp:
+        raise RuntimeError(f"WS handshake failed: {resp.decode(errors='ignore')}")
+    return s
+
+
+def _ws_send(s: socket.socket, data: dict) -> None:
+    payload = json.dumps(data).encode("utf-8")
+    length = len(payload)
+    mask = os.urandom(4)
+    masked = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+    if length < 126:
+        header = bytes([0x81, 0x80 | length]) + mask
+    elif length < 65536:
+        header = bytes([0x81, 0xFE, (length >> 8) & 0xFF, length & 0xFF]) + mask
+    else:
+        header = bytes([0x81, 0xFF]) + length.to_bytes(8, "big") + mask
+    s.sendall(header + masked)
+
+
+def _ws_recv_frame(s: socket.socket) -> bytes:
+    hdr = s.recv(2)
+    if len(hdr) < 2:
+        return b""
+    b1, b2 = hdr[0], hdr[1]
+    is_masked = bool(b2 & 0x80)
+    payload_len = b2 & 0x7F
+    if payload_len == 126:
+        payload_len = int.from_bytes(s.recv(2), "big")
+    elif payload_len == 127:
+        payload_len = int.from_bytes(s.recv(8), "big")
+    mask = s.recv(4) if is_masked else None
+    data = bytearray()
+    while len(data) < payload_len:
+        chunk = s.recv(min(payload_len - len(data), 65536))
+        if not chunk:
+            break
+        data.extend(chunk)
+    if is_masked and mask:
+        data = bytearray(b ^ mask[i % 4] for i, b in enumerate(data))
+    return bytes(data)
+
+
+def _call_cdp(s: socket.socket, method: str, params: dict = None, msg_id: int = 1) -> dict:
+    req = {"id": msg_id, "method": method, "params": params or {}}
+    _ws_send(s, req)
+    while True:
+        raw = _ws_recv_frame(s)
+        if not raw:
+            continue
+        try:
+            msg = json.loads(raw.decode("utf-8"))
+            if msg.get("id") == msg_id:
+                return msg
+        except Exception:
+            pass
+
+
+def capture_screenshot(
+    url: str,
+    output_path: Path,
+    wait_seconds: float = 5.0,
+    grafana_auth: bool = False,
+) -> bool:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     edge_paths = [
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
@@ -194,28 +281,94 @@ def capture_screenshot(url: str, output_path: Path) -> bool:
     ]
     msedge = next((p for p in edge_paths if os.path.exists(p)), None)
     if not msedge:
-        logger.warning("Microsoft Edge not found for headless screenshot at %s", edge_paths)
+        logger.warning("Microsoft Edge not found for screenshot at %s", edge_paths)
         return False
 
-    cmd = [
+    port = 9226
+    profile_dir = Path(f"C:/temp/edge_scr_{port}")
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    session_cookie = None
+    if grafana_auth:
+        try:
+            gf_pass = os.getenv("GRAFANA_ADMIN_PASSWORD", "metalops_local_grafana_2026")
+            login_data = json.dumps({"user": "admin", "password": gf_pass}).encode("utf-8")
+            req = urllib.request.Request("http://127.0.0.1:3001/login", data=login_data, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                cookies = resp.headers.get_all("set-cookie") or []
+            for c in cookies:
+                if "grafana_session=" in c:
+                    session_cookie = c.split("grafana_session=", 1)[1].split(";", 1)[0]
+                    break
+        except Exception as e:
+            logger.warning("Could not pre-authenticate with Grafana API: %s", e)
+
+    proc = subprocess.Popen([
         msedge,
-        "--headless",
+        "--headless=new",
+        f"--remote-debugging-port={port}",
+        f"--user-data-dir={profile_dir}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-fre",
         "--hide-scrollbars",
         "--window-size=1280,800",
-        f"--screenshot={output_path.resolve()}",
-        url,
-    ]
+        "about:blank" if grafana_auth else url,
+    ])
+
+    time.sleep(2)
+    s = None
     try:
-        res = subprocess.run(cmd, capture_output=True, timeout=15)
-        if res.returncode == 0 and output_path.is_file():
-            logger.info("Captured screenshot: %s", output_path)
-            # Copy to artifact dir for agent viewing
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/json", timeout=5) as resp:
+            tabs = json.loads(resp.read().decode())
+        page_tab = next(t for t in tabs if t.get("type") == "page")
+        ws_url = page_tab["webSocketDebuggerUrl"]
+        s = _ws_connect(ws_url)
+
+        if grafana_auth and session_cookie:
+            _call_cdp(s, "Network.enable", {}, msg_id=1)
+            _call_cdp(s, "Network.setCookie", {
+                "name": "grafana_session",
+                "value": session_cookie,
+                "domain": "127.0.0.1",
+                "path": "/",
+                "httpOnly": True,
+            }, msg_id=2)
+            _call_cdp(s, "Page.navigate", {"url": url}, msg_id=3)
+
+        time.sleep(wait_seconds)
+
+        # For Prometheus alerts, expand rule cards to reveal expressions and details
+        if "9090" in url and "alerts" in url:
+            _call_cdp(s, "Runtime.evaluate", {
+                "expression": "document.querySelectorAll('div[class*=\"collapse\"]').forEach(el => el.click()); document.querySelectorAll('button').forEach(b => { if((b.innerText||'').includes('HeatReport')) b.click(); });"
+            }, msg_id=4)
+            time.sleep(1)
+
+        res = _call_cdp(s, "Page.captureScreenshot", {"format": "png"}, msg_id=10)
+        img_b64 = res.get("result", {}).get("data", "")
+        if img_b64:
+            img_bytes = base64.b64decode(img_b64)
+            output_path.write_bytes(img_bytes)
+            logger.info("Captured genuine screenshot (%d bytes): %s", len(img_bytes), output_path)
             if ARTIFACT_DIR.is_dir():
                 shutil.copy2(output_path, ARTIFACT_DIR / output_path.name)
             return True
-        logger.warning("Screenshot command returned %s: %s", res.returncode, res.stderr.decode("utf-8", errors="ignore"))
-    except Exception as e:
-        logger.warning("Failed to capture screenshot of %s: %s", url, e)
+        logger.warning("CDP captureScreenshot returned no data: %s", res)
+    except Exception as exc:
+        logger.warning("CDP screenshot failed for %s: %s", url, exc)
+    finally:
+        if s:
+            try:
+                s.close()
+            except Exception:
+                pass
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            proc.kill()
+
     return False
 
 
@@ -345,8 +498,14 @@ def main():
 
         # Step 4: Capture Firing Evidence
         time.sleep(2)
-        capture_screenshot("http://127.0.0.1:9999", EVIDENCE_DIR / "webhook_payload_firing.png")
-        capture_screenshot("http://127.0.0.1:9090/alerts", EVIDENCE_DIR / "alert_firing_prometheus.png")
+        capture_screenshot("http://127.0.0.1:9999", EVIDENCE_DIR / "webhook_payload_firing.png", wait_seconds=2)
+        capture_screenshot("http://127.0.0.1:9090/alerts", EVIDENCE_DIR / "alert_firing_prometheus.png", wait_seconds=5)
+        capture_screenshot(
+            "http://127.0.0.1:3001/d/metalops-key-journey/metalops-key-journey?from=now-15m&to=now&refresh=5s",
+            EVIDENCE_DIR / "alert_firing_grafana.png",
+            wait_seconds=5,
+            grafana_auth=True,
+        )
 
         # Step 5: Recovery
         logger.info("=================================================================")
@@ -376,8 +535,8 @@ def main():
 
         # Step 6: Capture Resolved Evidence
         time.sleep(2)
-        capture_screenshot("http://127.0.0.1:9999", EVIDENCE_DIR / "webhook_payload_resolved.png")
-        capture_screenshot("http://127.0.0.1:9090/alerts", EVIDENCE_DIR / "alert_resolved_prometheus.png")
+        capture_screenshot("http://127.0.0.1:9999", EVIDENCE_DIR / "webhook_payload_resolved.png", wait_seconds=2)
+        capture_screenshot("http://127.0.0.1:9090/alerts", EVIDENCE_DIR / "alert_resolved_prometheus.png", wait_seconds=5)
 
         logger.info("=================================================================")
         logger.info("TEST COMPLETE: ALL 3 OUTCOMES VERIFIED WITH EVIDENCE")

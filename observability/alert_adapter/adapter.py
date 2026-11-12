@@ -231,6 +231,23 @@ class AlertAdapter:
 
         for item in alerts:
             item_status = item.get("status", status).lower()
+
+            # Enforce configurable threshold if specified on firing alerts
+            if item_status == "firing" and self.threshold > 0.0:
+                raw_val = item.get("annotations", {}).get("value") or item.get("value")
+                if raw_val is not None:
+                    try:
+                        ratio_val = float(raw_val)
+                        if ratio_val < self.threshold:
+                            logger.info(
+                                "5xx error rate ratio %.4f below configured threshold %.4f; skipping dispatch.",
+                                ratio_val,
+                                self.threshold,
+                            )
+                            continue
+                    except (ValueError, TypeError):
+                        pass
+
             formatted = format_alert_payload(status=item_status, alert=item, trace_ids=trace_ids)
             send_webhook_notification(self.webhook_url, formatted)
             self.history.append(formatted)
@@ -309,3 +326,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

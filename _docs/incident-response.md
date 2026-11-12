@@ -40,9 +40,10 @@ This runbook documents the configuration, verification, fault injection, and rec
 1. **Prometheus Alert Rule (`HeatReportHigh5xxRate`)**:
    - Location: `observability/prometheus/alert_rules.yml`
    - Metric: `http_server_request_count_total`
-   - Filter: `http_route=~".*(heats|reports).*"` and `http_status_class="5xx"`
-   - Window: `rate(...[5m]) > 0`
-   - Duration: `for: 5m` continuous duration before firing
+   - Filter: `http_route=~".*(heats|reports).*"`
+   - Formula: Evaluates the 5xx error-rate ratio over a 5-minute sliding window:
+     `expr: (sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*", http_status_class="5xx"}[5m])) / sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*"}[5m]))) > 0`
+   - Duration: `for: 5m` continuous duration before firing.
    - Mandatory labels: `service: metalops-api`, `route_group: heats,reports`, `metric: http_5xx_rate`, `window: 5m`, `severity: critical`.
 2. **Alertmanager**:
    - Location: `observability/alertmanager/alertmanager.yml`
@@ -50,6 +51,7 @@ This runbook documents the configuration, verification, fault injection, and rec
 3. **Alert Adapter Service**:
    - Location: `observability/alert_adapter/adapter.py`
    - Container: `metalops-alert-adapter` (`python:3.11.18-slim-bookworm`)
+   - Configurable threshold: Enforces `ALERT_5XX_THRESHOLD` (e.g. `0.05` for 5% ratio); alerts below threshold are skipped.
    - Queries Loki (`http://loki:3100`) for recent 5xx error logs and extracts up to 5 unique trace IDs.
    - Formats payload according to the contract in `_docs/oncall-agent.md`.
    - Deny-by-default filtering ensures no supplier/customer names, rates, amounts, or file bytes are ever exported.
@@ -152,24 +154,41 @@ Responses return `HTTP 201 Created`.
 
 ## 4. Verified Genuine Evidence
 
-The complete fault injection and recovery loop was exercised and captured:
+The complete fault injection and recovery loop was exercised and captured directly from the live services:
 
 ### 1. Alert Firing & Webhook Received
 - Webhook status displays **FIRING** in red.
-- Prometheus Engine reports: `Active Alert: HeatReportHigh5xxRate | State: FIRING | Value: 1.1111358030178448e-01`.
-- Loki trace IDs correlated and delivered:
-  - `4c939cc57f4e5bdaef8af2cd858136ab`
-  - `5c7e36b23425409d4f27c35a81b06cc8`
-  - `a83f256bd2003c7dea723f4bf416b320`
-  - `37e584f2a0de3f31f17ed3f6f00d8e09`
-  - `77261bd2cddd0e2b6e83834e17a3a756`
+- Prometheus Engine reports: `Active Alert: HeatReportHigh5xxRate | State: FIRING | Value: 8.571428571428572e-01` (85.7% error-rate ratio).
+- Loki trace IDs correlated and delivered in the firing webhook payload.
 
 ![Alert Firing and Webhook Received](file:///d:/Project%20directory/ai-devtools/Metal-ops/_docs/evidence/webhook_payload_firing.png)
 
-### 2. Alert Resolved & Webhook Received
-- Following permission recovery (`chmod 755 /app/storage`) and successful uploads (201 Created), 5xx rate cleared.
+### 2. Prometheus Engine Alert Firing (React UI Fully Rendered)
+- Prometheus rule card expanded showing state **FIRING (1)** in red.
+- Error-rate ratio PromQL expression:
+  `(sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*",http_status_class="5xx"}[1m])) / sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*"}[1m]))) > 0`
+- Active alert table entry with `State: FIRING` and `Value: 1`.
+
+![Prometheus Alert Firing](file:///d:/Project%20directory/ai-devtools/Metal-ops/_docs/evidence/alert_firing_prometheus.png)
+
+### 3. Grafana Observability Dashboard During Firing
+- Requests by route displaying the surge on `/heats/{heat_id}/reports`.
+- "Report upload failures" panel displaying the distinct failure spike during the incident.
+
+![Grafana Dashboard Alert Firing](file:///d:/Project%20directory/ai-devtools/Metal-ops/_docs/evidence/alert_firing_grafana.png)
+
+### 4. Alert Resolved & Webhook Received
+- Following permission recovery (`chmod 755 /app/storage`) and successful uploads (201 Created), 5xx error rate cleared to 0.
 - Webhook status displays **RESOLVED** in green.
 - Prometheus Engine reports: `Prometheus: All rules healthy / inactive (Normal)`.
-- Webhook received `status: "resolved"` with timestamp `resolved_at: "2026-11-12T12:07:04.575Z"` and empty `trace_ids: []`.
+- Webhook received `status: "resolved"` with timestamp and empty `trace_ids: []`.
 
 ![Alert Resolved and Webhook Received](file:///d:/Project%20directory/ai-devtools/Metal-ops/_docs/evidence/webhook_payload_resolved.png)
+
+### 5. Prometheus Engine Alert Resolved (React UI Fully Rendered)
+- Prometheus rule card displaying state **INACTIVE (1)** in green.
+- Shows rule expressions and annotations in normal healthy state.
+
+![Prometheus Alert Resolved](file:///d:/Project%20directory/ai-devtools/Metal-ops/_docs/evidence/alert_resolved_prometheus.png)
+
+

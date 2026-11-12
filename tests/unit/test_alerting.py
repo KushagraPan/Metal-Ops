@@ -73,6 +73,7 @@ def test_alert_rules_file_exists_and_is_valid_yaml():
     assert "http_server_request_count_total" in expr or "http_server_request_count" in expr
     assert "heats" in expr and "reports" in expr
     assert "5xx" in expr
+    assert "/" in expr, "Alert rule expr must compute an error-rate ratio (numerator / denominator)"
 
     # Duration must be 5 minutes
     assert rule.get("for") == "5m"
@@ -259,6 +260,32 @@ def test_payload_never_leaks_sensitive_business_data():
 
     for forbidden in ("SecretSupplier", "SecretCustomer", "50000", "100000", "private_report.pdf", "abc12345"):
         assert forbidden not in serialized
+
+
+def test_adapter_enforces_configurable_threshold():
+    adapter = AlertAdapter(webhook_url="http://mock-hook", threshold=0.10)
+
+    # Below threshold (5% < 10%): should not dispatch
+    low_alert = {
+        "status": "firing",
+        "labels": {"alertname": "HeatReportHigh5xxRate"},
+        "annotations": {"value": "0.05"},
+    }
+    with patch("observability.alert_adapter.adapter.send_webhook_notification") as mock_send:
+        dispatched = adapter.handle_alertmanager_payload({"status": "firing", "alerts": [low_alert]})
+        assert len(dispatched) == 0
+        assert not mock_send.called
+
+    # Above threshold (15% >= 10%): should dispatch
+    high_alert = {
+        "status": "firing",
+        "labels": {"alertname": "HeatReportHigh5xxRate"},
+        "annotations": {"value": "0.15"},
+    }
+    with patch("observability.alert_adapter.adapter.send_webhook_notification") as mock_send:
+        dispatched = adapter.handle_alertmanager_payload({"status": "firing", "alerts": [high_alert]})
+        assert len(dispatched) == 1
+        assert mock_send.called
 
 
 # ---------------------------------------------------------------------------
