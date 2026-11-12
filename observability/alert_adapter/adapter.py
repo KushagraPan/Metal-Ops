@@ -211,11 +211,9 @@ class AlertAdapter:
         self,
         webhook_url: str | None = None,
         loki_url: str | None = None,
-        threshold: float = 0.0,
     ) -> None:
         self.webhook_url = webhook_url if webhook_url is not None else os.getenv("ALERT_WEBHOOK_URL")
         self.loki_url = loki_url if loki_url is not None else os.getenv("LOKI_URL", "http://loki:3100")
-        self.threshold = threshold
         self.history: list[dict[str, Any]] = []
 
     def handle_alertmanager_payload(self, body: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -231,23 +229,6 @@ class AlertAdapter:
 
         for item in alerts:
             item_status = item.get("status", status).lower()
-
-            # Enforce configurable threshold if specified on firing alerts
-            if item_status == "firing" and self.threshold > 0.0:
-                raw_val = item.get("annotations", {}).get("value") or item.get("value")
-                if raw_val is not None:
-                    try:
-                        ratio_val = float(raw_val)
-                        if ratio_val < self.threshold:
-                            logger.info(
-                                "5xx error rate ratio %.4f below configured threshold %.4f; skipping dispatch.",
-                                ratio_val,
-                                self.threshold,
-                            )
-                            continue
-                    except (ValueError, TypeError):
-                        pass
-
             formatted = format_alert_payload(status=item_status, alert=item, trace_ids=trace_ids)
             send_webhook_notification(self.webhook_url, formatted)
             self.history.append(formatted)
@@ -307,14 +288,12 @@ def main() -> None:
     port = int(os.getenv("PORT", "9097"))
     webhook_url = os.getenv("ALERT_WEBHOOK_URL")
     loki_url = os.getenv("LOKI_URL", "http://loki:3100")
-    threshold = float(os.getenv("ALERT_5XX_THRESHOLD", "0.0"))
 
     logger.info("Starting MetalOps Alert Adapter on port %s", port)
     logger.info("Configured Webhook: %s", mask_credentials(webhook_url) or "<unset>")
     logger.info("Loki URL: %s", mask_credentials(loki_url))
-    logger.info("5xx Rate Threshold: %s", threshold)
 
-    adapter = AlertAdapter(webhook_url=webhook_url, loki_url=loki_url, threshold=threshold)
+    adapter = AlertAdapter(webhook_url=webhook_url, loki_url=loki_url)
     server_address = ("0.0.0.0", port)
     httpd = HTTPServer(server_address, make_handler(adapter))
     try:

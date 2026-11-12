@@ -75,7 +75,6 @@ services:
       - ./observability/alert_adapter:/app/observability/alert_adapter:ro
     environment:
       ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
-      ALERT_5XX_THRESHOLD: ${ALERT_5XX_THRESHOLD:-0.0}
       LOKI_URL: http://loki:3100
       PORT: 9097
     mem_limit: 128m

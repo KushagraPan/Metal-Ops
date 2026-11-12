@@ -37,6 +37,12 @@ from observability.alert_adapter.adapter import (
     send_webhook_notification,
     ALLOWED_ALERT_PAYLOAD_FIELDS,
 )
+from observability.prometheus.rules import (
+    DEFAULT_5XX_RATIO_THRESHOLD,
+    build_alert_expression,
+    parse_alert_threshold,
+    update_alert_rule_threshold,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -74,6 +80,12 @@ def test_alert_rules_file_exists_and_is_valid_yaml():
     assert "heats" in expr and "reports" in expr
     assert "5xx" in expr
     assert "/" in expr, "Alert rule expr must compute an error-rate ratio (numerator / denominator)"
+
+    # Configurable ratio threshold must be in the PromQL expression so 'for: 5m' applies to it
+    threshold = parse_alert_threshold(expr)
+    assert threshold > 0.0, "Threshold in alert expression must be greater than 0"
+    assert threshold <= 1.0, "Threshold in alert expression must be at most 1.0 (ratio)"
+    assert threshold == DEFAULT_5XX_RATIO_THRESHOLD, f"Expected default threshold {DEFAULT_5XX_RATIO_THRESHOLD}, got {threshold}"
 
     # Duration must be 5 minutes
     assert rule.get("for") == "5m"
@@ -262,30 +274,62 @@ def test_payload_never_leaks_sensitive_business_data():
         assert forbidden not in serialized
 
 
-def test_adapter_enforces_configurable_threshold():
-    adapter = AlertAdapter(webhook_url="http://mock-hook", threshold=0.10)
+def test_build_alert_expression_with_configurable_threshold():
+    """Verify that PromQL error-rate ratio expressions can be built with configurable thresholds."""
+    expr_default = build_alert_expression()
+    assert expr_default.endswith(f"> {DEFAULT_5XX_RATIO_THRESHOLD:g}")
+    assert "/" in expr_default
 
-    # Below threshold (5% < 10%): should not dispatch
-    low_alert = {
+    expr_010 = build_alert_expression(0.10)
+    assert expr_010.endswith("> 0.1")
+
+    expr_001 = build_alert_expression(0.01)
+    assert expr_001.endswith("> 0.01")
+
+    with pytest.raises(ValueError, match="between 0.0 and 1.0"):
+        build_alert_expression(-0.1)
+
+    with pytest.raises(ValueError, match="between 0.0 and 1.0"):
+        build_alert_expression(1.5)
+
+
+def test_parse_alert_threshold_from_expression():
+    """Verify extraction of the numeric comparison threshold from PromQL expressions."""
+    assert parse_alert_threshold("sum(rate(x[5m])) / sum(rate(y[5m])) > 0.05") == 0.05
+    assert parse_alert_threshold("sum(rate(x[5m])) / sum(rate(y[5m])) > 0.1") == 0.1
+    assert parse_alert_threshold("sum(rate(x[5m])) / sum(rate(y[5m])) > 0.00") == 0.0
+
+    with pytest.raises(ValueError, match="Could not parse comparison threshold"):
+        parse_alert_threshold("sum(rate(x[5m])) / sum(rate(y[5m]))")
+
+
+def test_adapter_dispatches_alerts_without_duplicate_threshold_filtering():
+    """Alertmanager delivers alerts once Prometheus verifies they exceeded the ratio threshold for 5m.
+    The adapter must not drop or duplicate threshold filtering on incoming alerts."""
+    adapter = AlertAdapter(webhook_url="http://mock-hook")
+
+    # An alert with any instantaneous ratio value delivered by Alertmanager must be dispatched
+    alert = {
         "status": "firing",
         "labels": {"alertname": "HeatReportHigh5xxRate"},
-        "annotations": {"value": "0.05"},
+        "annotations": {"value": "0.02"},
     }
     with patch("observability.alert_adapter.adapter.send_webhook_notification") as mock_send:
-        dispatched = adapter.handle_alertmanager_payload({"status": "firing", "alerts": [low_alert]})
-        assert len(dispatched) == 0
-        assert not mock_send.called
-
-    # Above threshold (15% >= 10%): should dispatch
-    high_alert = {
-        "status": "firing",
-        "labels": {"alertname": "HeatReportHigh5xxRate"},
-        "annotations": {"value": "0.15"},
-    }
-    with patch("observability.alert_adapter.adapter.send_webhook_notification") as mock_send:
-        dispatched = adapter.handle_alertmanager_payload({"status": "firing", "alerts": [high_alert]})
+        dispatched = adapter.handle_alertmanager_payload({"status": "firing", "alerts": [alert]})
         assert len(dispatched) == 1
         assert mock_send.called
+        assert dispatched[0]["status"] == "firing"
+
+    resolved_alert = {
+        "status": "resolved",
+        "labels": {"alertname": "HeatReportHigh5xxRate"},
+        "annotations": {"value": "0.0"},
+    }
+    with patch("observability.alert_adapter.adapter.send_webhook_notification") as mock_send:
+        dispatched = adapter.handle_alertmanager_payload({"status": "resolved", "alerts": [resolved_alert]})
+        assert len(dispatched) == 1
+        assert mock_send.called
+        assert dispatched[0]["status"] == "resolved"
 
 
 # ---------------------------------------------------------------------------

@@ -68,9 +68,9 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - Collector-down check: stopping `metalops-otel-collector` left `/api/health` and `/api/ready` returning 200 in 16 ms and 8 ms.
   - The normal stack (`compose.yaml` without the profile) still starts and passes `make test-unit` (257 tests).
 - **[#17] Alert on user impact** (Implemented — Pending Human Review)
-  - Configured Prometheus alert rule `HeatReportHigh5xxRate` (`observability/prometheus/alert_rules.yml`) evaluating the 5xx error-rate ratio on heat/report endpoints (`sum(rate(...5xx...[5m])) / sum(rate(......[5m])) > 0`) for 5 continuous minutes.
+  - Configured Prometheus alert rule `HeatReportHigh5xxRate` (`observability/prometheus/alert_rules.yml`) evaluating the 5xx error-rate ratio on heat/report endpoints (`sum(rate(...5xx...[5m])) / sum(rate(......[5m])) > 0.05`) with `for: 5m` applying directly to the configurable ratio threshold.
   - Integrated Alertmanager (`prom/alertmanager:v0.28.1`) routing to `alert-adapter` with `send_resolved: true`.
-  - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) supporting configurable ratio thresholds (`ALERT_5XX_THRESHOLD`), enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs, and formatting payloads per `_docs/oncall-agent.md`.
+  - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs, without duplicate threshold filtering, and formatting payloads per `_docs/oncall-agent.md`.
   - Deny-by-default allow-list prevents exposure of business data, rates, amounts, or file bytes in alert payloads; credential masking (`mask_credentials()`) strips passwords and tokens from logs.
   - Fully verified fault injection and recovery loop (`chmod 000 /app/storage` -> 500 errors -> firing alert + webhook received with 5 trace IDs -> `chmod 755 /app/storage` -> 201 created -> resolved alert + webhook received) documented in `_docs/incident-response.md` with genuine screenshots covering Prometheus firing, Prometheus resolved, Grafana firing, and webhook receiver states.
 

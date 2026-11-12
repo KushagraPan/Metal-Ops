@@ -41,9 +41,9 @@ This runbook documents the configuration, verification, fault injection, and rec
    - Location: `observability/prometheus/alert_rules.yml`
    - Metric: `http_server_request_count_total`
    - Filter: `http_route=~".*(heats|reports).*"`
-   - Formula: Evaluates the 5xx error-rate ratio over a 5-minute sliding window:
-     `expr: (sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*", http_status_class="5xx"}[5m])) / sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*"}[5m]))) > 0`
-   - Duration: `for: 5m` continuous duration before firing.
+   - Formula: Evaluates the 5xx error-rate ratio over a 5-minute sliding window with a configurable threshold (default `> 0.05` / 5%):
+     `expr: (sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*", http_status_class="5xx"}[5m])) / sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*"}[5m]))) > 0.05`
+   - Duration: `for: 5m` applies directly to the threshold condition so the ratio must exceed the threshold continuously for 5 minutes before firing.
    - Mandatory labels: `service: metalops-api`, `route_group: heats,reports`, `metric: http_5xx_rate`, `window: 5m`, `severity: critical`.
 2. **Alertmanager**:
    - Location: `observability/alertmanager/alertmanager.yml`
@@ -51,7 +51,7 @@ This runbook documents the configuration, verification, fault injection, and rec
 3. **Alert Adapter Service**:
    - Location: `observability/alert_adapter/adapter.py`
    - Container: `metalops-alert-adapter` (`python:3.11.18-slim-bookworm`)
-   - Configurable threshold: Enforces `ALERT_5XX_THRESHOLD` (e.g. `0.05` for 5% ratio); alerts below threshold are skipped.
+   - Direct dispatch: Dispatches verified firing and resolved alerts delivered by Alertmanager without duplicate threshold filtering.
    - Queries Loki (`http://loki:3100`) for recent 5xx error logs and extracts up to 5 unique trace IDs.
    - Formats payload according to the contract in `_docs/oncall-agent.md`.
    - Deny-by-default filtering ensures no supplier/customer names, rates, amounts, or file bytes are ever exported.
