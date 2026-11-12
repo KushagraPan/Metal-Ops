@@ -67,12 +67,17 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - Privacy check over real telemetry: the sentinel supplier, customer, rate, amount and filename strings returned zero matches in Loki, Tempo and Prometheus.
   - Collector-down check: stopping `metalops-otel-collector` left `/api/health` and `/api/ready` returning 200 in 16 ms and 8 ms.
   - The normal stack (`compose.yaml` without the profile) still starts and passes `make test-unit` (257 tests).
+- **[#17] Alert on user impact** (Implemented — Pending Human Review)
+  - Configured Prometheus alert rule `HeatReportHigh5xxRate` (`observability/prometheus/alert_rules.yml`) targeting 5xx rate on heat/report endpoints (`http_route=~".*(heats|reports).*"`, `http_status_class="5xx"`) for 5 continuous minutes.
+  - Integrated Alertmanager (`prom/alertmanager:v0.28.1`) routing to `alert-adapter` with `send_resolved: true`.
+  - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs and formatting payloads per `_docs/oncall-agent.md`.
+  - Deny-by-default allow-list prevents exposure of business data, rates, amounts, or file bytes in alert payloads; credential masking (`mask_credentials()`) strips passwords and tokens from logs.
+  - Fully verified fault injection and recovery loop (`chmod 000 /app/storage` -> 500 errors -> firing alert + webhook received with 5 trace IDs -> `chmod 755 /app/storage` -> 201 created -> resolved alert + webhook received) documented in `_docs/incident-response.md` with genuine screenshots.
 
 ---
 
 ## 2. Deferred Items & Backlog
 
-- **#17 [P0] Alert on user impact**
 - **#18 [P0] On-call agent**
 - **#19 [P0] Documentation and agent team**
 - **#20 [P1] Make missing GST settings fallback visible**
@@ -83,8 +88,8 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
 
 ## 3. What is Next
 
-- **Human Review of Issue #16 Parts 1 and 2 PR** (branch `issue-16`).
-- Do not start #17 until #16 is reviewed and closed.
+- **Human Review of Issue #17 PR** (branch `issue-16`).
+- Do not start #18 until #17 is reviewed and closed.
 
 ---
 

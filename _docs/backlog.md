@@ -375,7 +375,7 @@ Acceptance criteria:
 - Forcing errors (for example a broken storage path) fires the alert; fixing them resolves it.
 - The webhook receives the alert payload.
 
-Tests: a documented fault-injection run with screenshots.
+Tests: a documented fault-injection run with screenshots (see `_docs/incident-response.md` and `_docs/evidence/`).
 
 ## #18 [P0] On-call agent
 Labels: agent, devops · Depends on: #17

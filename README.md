@@ -197,8 +197,17 @@ Collector, Prometheus, Loki and Tempo are reachable only on the Compose network.
 To tear down only the observability services while keeping the application:
 ```bash
 docker compose -f compose.yaml -f compose.observability.yaml \
-  --profile observability stop otel-collector prometheus loki tempo grafana
+  --profile observability stop otel-collector prometheus alertmanager alert-adapter loki tempo grafana
 ```
+
+## Alerting on User Impact (Issue #17)
+
+When the observability profile is active, Prometheus evaluates the `HeatReportHigh5xxRate` alert rule (`observability/prometheus/alert_rules.yml`). If the 5xx rate on heat or report endpoints exceeds the threshold continuously for 5 minutes, an alert is dispatched through Alertmanager to the Alert Adapter, which queries Loki for correlated trace IDs and POSTs a sanitized payload to `ALERT_WEBHOOK_URL`.
+
+- **Configuration:** Set `ALERT_WEBHOOK_URL` in `.env`.
+- **Contract:** Dispatches firing and resolved notifications formatted per `_docs/oncall-agent.md`.
+- **Fault Injection & Recovery:** See the step-by-step incident runbook and screenshot evidence in [`_docs/incident-response.md`](_docs/incident-response.md).
+
 
 ## Continuous Integration & Branch Protection
 
