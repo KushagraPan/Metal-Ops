@@ -19,6 +19,8 @@ RUN npm run build
 # Stage 2: Production web server with pinned Nginx image
 FROM nginx:1.27.5-alpine
 
+LABEL org.opencontainers.image.source="https://github.com/KushagraPan/Metal-Ops"
+
 # Copy built SPA artifacts
 COPY --from=builder /app/dist /usr/share/nginx/html
 

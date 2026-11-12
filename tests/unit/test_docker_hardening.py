@@ -231,3 +231,42 @@ def test_compose_prod_configuration():
     assert "pg_isready" in content
     assert "/api/ready" in content
 
+
+def test_cd_workflow_permissions_and_image_ownership():
+    import yaml
+    cd_path = os.path.join(os.path.dirname(__file__), "..", "..", ".github", "workflows", "cd.yml")
+    assert os.path.exists(cd_path), "cd.yml must exist"
+
+    with open(cd_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    # Workflow root permissions: least privilege
+    assert data.get("permissions") == {"contents": "read"}
+
+    jobs = data.get("jobs", {})
+    assert "build" in jobs
+    assert "deploy-development" in jobs
+    assert "deploy-production" in jobs
+
+    # Build job explicitly has packages: write
+    build_perms = jobs["build"].get("permissions", {})
+    assert build_perms.get("packages") == "write"
+    assert build_perms.get("contents") == "read"
+
+    # Deploy jobs do not have packages: write
+    assert jobs["deploy-development"].get("permissions", {}).get("packages") is None
+    assert jobs["deploy-production"].get("permissions", {}).get("packages") is None
+
+    # Step validation: login and OCI labels
+    steps = jobs["build"].get("steps", [])
+    login_step = next((s for s in steps if "Log in" in s.get("name", "")), None)
+    assert login_step is not None
+    assert login_step.get("uses", "").startswith("docker/login-action")
+
+    # Image build commands attach OCI source label for package ownership
+    build_steps = [s for s in steps if "Build and push" in s.get("name", "")]
+    assert len(build_steps) == 2
+    for bs in build_steps:
+        assert "org.opencontainers.image.source" in bs.get("run", "")
+
+

@@ -1,6 +1,8 @@
 # Pinned Python base image
 FROM python:3.11.18-slim-bookworm
 
+LABEL org.opencontainers.image.source="https://github.com/KushagraPan/Metal-Ops"
+
 # Prevent Python from writing .pyc files and buffer output
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
