@@ -38,6 +38,7 @@ class LocalStorage:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def save(self, chunks: Iterable[bytes]) -> StoredFile:
+        self.root.mkdir(parents=True, exist_ok=True)
         key = f"{uuid4().hex}.pdf"
         path = self._path(key)
         size_bytes = 0
