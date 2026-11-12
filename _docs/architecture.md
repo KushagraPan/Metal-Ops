@@ -208,7 +208,7 @@ An edit excludes the heat's own existing inputs from the availability calculatio
 - Session cookie auth; every `/api` route except `/api/health` and login requires a session (issue #11).
 - Passwords hashed; the owner account is created from environment variables at startup.
 - Downloads are authenticated; file keys are random and never derived from user input.
-- Telemetry allow-list: route, method, status, duration, trace and span IDs, heat/report IDs, byte sizes. Never supplier or customer names, rates, amounts, filenames or file contents. A unit test asserts the allow-list (issue #16).
+- Telemetry is off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set. When it is on, a deny-by-default allow-list filters span attributes, metric labels and log fields before export: route template, method, status class, duration, trace/span IDs, heat/report IDs and byte sizes only. SQL text, bodies, headers, cookies, query strings, raw paths, exception messages, filenames and file contents never leave the process. Batch exporters isolate Collector outages from request latency (issue #16 Part 1).
 - Secrets only from environment variables; `.env` is git-ignored and `.env.example` lists names without values.
 
 ## 7. Deployment topology (planned)

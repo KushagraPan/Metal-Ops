@@ -112,4 +112,24 @@ describe('App authentication integration', () => {
       expect(screen.getByRole('button', { name: /log in|sign in/i })).toBeTruthy()
     })
   })
+
+  it('displays application version in both login and dashboard screens', async () => {
+    vi.mocked(api.auth.me).mockRejectedValueOnce(new Error('Authentication required.'))
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('login-app-version')).toBeTruthy()
+    })
+    expect(screen.getByTestId('login-app-version').textContent).toMatch(/version:/i)
+
+    // Now log in and check dashboard version badge
+    cleanup()
+    vi.mocked(api.auth.me).mockResolvedValueOnce({ id: 1, email: 'owner@metalops.local' })
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('app-version')).toBeTruthy()
+    })
+    expect(screen.getByTestId('app-version').textContent).toMatch(/^v/i)
+  })
 })

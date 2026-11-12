@@ -13,7 +13,7 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev test test-unit test-integration test-db-up test-db-down typecheck clean migrate seed reset-db stack-up stack-down stack-test stack-persistence
+.PHONY: help install dev test test-unit test-integration test-db-up test-db-down typecheck clean migrate seed reset-db stack-up stack-down stack-test stack-persistence rollback-test
 
 help:
 	@echo make dev               API on http://127.0.0.1:8000 and frontend on http://127.0.0.1:5173
@@ -26,6 +26,7 @@ help:
 	@echo make stack-down        stop and tear down Docker Compose stack
 	@echo make stack-test        run integration tests against Compose stack
 	@echo make stack-persistence verify report persistence across stack restart
+	@echo make rollback-test     verify deployment and rollback using image tags
 	@echo make install           create the virtualenv and install dependencies
 	@echo make migrate           apply Alembic migrations to DATABASE_URL
 	@echo make seed              migrate, then insert the fictional demo data
@@ -73,6 +74,9 @@ stack-test: install
 
 stack-persistence: install
 	$(VENV_PY) scripts/stack_persistence_test.py
+
+rollback-test: install
+	$(VENV_PY) scripts/rollback_test.py
 
 test-unit: install
 	$(VENV_PY) -m pytest tests/unit

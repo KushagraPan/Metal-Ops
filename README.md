@@ -141,6 +141,65 @@ make stack-persistence
 make stack-down
 ```
 
+## Observability stack (Issue #16 Part 2)
+
+The optional `observability` profile adds an OpenTelemetry Collector, Prometheus,
+Loki, Tempo and Grafana. The application stack is unchanged when the profile is
+off. Only Grafana is published, on loopback (`127.0.0.1:3001` by default); the
+Collector, Prometheus, Loki and Tempo are reachable only on the Compose network.
+
+1. **Set the Grafana admin password** in `.env` (never commit it):
+   ```bash
+   GRAFANA_ADMIN_PASSWORD=choose_a_unique_local_password
+   GRAFANA_PORT=3001
+   ```
+2. **Start the application and observability services:**
+   ```bash
+   docker compose -f compose.yaml -f compose.observability.yaml \
+     --profile observability up -d --build --wait
+   ```
+   Add `compose.test.yaml` to the `-f` list if you also need the PostgreSQL test
+   port. Without the profile, `docker compose up -d --build --wait` starts only
+   the normal PostgreSQL, backend and frontend stack.
+3. **Open Grafana** at [http://127.0.0.1:3001](http://127.0.0.1:3001) and sign in
+   as `admin` with the password from `.env`.
+
+### Privacy and retention
+
+- The backend sends OTLP to `otel-collector:4318` only in
+  `compose.observability.yaml`. If the variable is unset, telemetry stays off.
+- Span attributes, metric labels and log fields pass through the deny-by-default
+  allow-list in `app/telemetry.py`. SQL text, bodies, headers, cookies, query
+  strings, raw paths with IDs, exception text, file names and file bytes are
+  dropped before export.
+- Prometheus, Loki and Tempo retain at most 48 hours of data. Each service has a
+  Compose memory limit.
+
+### Find the key-journey evidence in Grafana
+
+1. In the app at [http://127.0.0.1:3000](http://127.0.0.1:3000), create a purchase
+   lot, create a heat from that lot, then upload a PDF spectro report for the
+   heat.
+2. Open **MetalOps → MetalOps key journey**. The dashboard shows requests by
+   route, p95 latency, report upload counts, upload failures and uploaded bytes.
+3. Open **Explore → Prometheus** and run, for example:
+   ```promql
+   sum by (http_route) (rate(http_server_request_count_total[5m]))
+   report_upload_count_total
+   ```
+4. Open **Explore → Loki** and query `{service_name="metalops-lite"}`. JSON log
+   lines include `trace_id` and `span_id`. Click the derived **TraceID** link to
+   open the same request in Tempo, or paste the ID into **Explore → Tempo**.
+5. In **Explore → Tempo**, search by service `metalops-lite` and open the
+   `POST /api/heats/{heat_id}/reports` trace. The HTTP span, SQLAlchemy spans and
+   upload metrics share that trace.
+
+To tear down only the observability services while keeping the application:
+```bash
+docker compose -f compose.yaml -f compose.observability.yaml \
+  --profile observability stop otel-collector prometheus loki tempo grafana
+```
+
 ## Continuous Integration & Branch Protection
 
 Automated verification runs on GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) on every pull request and on pushes to `main`. The pipeline comprises parallel jobs:
@@ -167,6 +226,69 @@ To require pull requests and the automated `ci` gate before merging to `main` on
 5. Click **Save changes** (or **Create**).
 
 Once enabled, direct pushes to `main` are blocked and pull requests cannot be merged unless all CI jobs succeed through the aggregate `ci` check.
+
+## Continuous Delivery & Deployment (CD)
+
+Automated deployment runs via GitHub Actions ([`.github/workflows/cd.yml`](.github/workflows/cd.yml)):
+- **Merge to `main`:** Builds immutable container images tagged with the commit SHA (`ghcr.io/kushagrapan/metal-ops-backend:<sha>` and `metal-ops-frontend:<sha>`) and automatically redeploys the **development** environment.
+- **Production Gate:** Production deployment targets the **production** GitHub Environment and requires explicit manual review and approval from designated reviewers.
+- **Persistent Storage:** Deployments use Docker Compose (`compose.prod.yaml`) on a single small VM with named persistent volumes (`metalops_postgres_data` and `metalops_uploads`), ensuring database records and uploaded spectro PDF reports persist across updates and restarts.
+- **Version Display in UI:** The frontend displays the active application version/commit SHA in the login screen, desktop sidebar footer, and mobile top bar (`v<version>`), injected via build argument `VITE_APP_VERSION`.
+
+### Public Application URLs
+
+| Environment | Public URL | Deployment Gate |
+|---|---|---|
+| **Production** | [https://metalops.example.com](https://metalops.example.com) *(configured via `PROD_APP_URL`)* | Manual review required (GitHub Environment `production`) |
+| **Development** | [http://dev.metalops.local](http://dev.metalops.local) *(configured via `DEV_APP_URL`)* | Automated on push/merge to `main` |
+
+*Note: Replace example hosts with your provisioned VM hostnames/DNS in GitHub repository environment variables (`PROD_APP_URL`, `DEV_APP_URL`).*
+
+### VM Prerequisites & Secrets
+
+To connect CI/CD to target VMs, configure the following secrets in GitHub Repository or Environment Settings:
+
+- `DEPLOY_HOST`: Hostname or IP address of the target VM.
+- `DEPLOY_USER`: SSH user with Docker Compose access (e.g., `ubuntu` or `metalops`).
+- `DEPLOY_SSH_KEY`: Private SSH key authorized in the VM's `~/.ssh/authorized_keys`.
+- `OWNER_PASSWORD`: Admin password (minimum 10 characters).
+
+### GitHub Environment Setup for Production Approval
+
+1. In your GitHub repository, open **Settings** > **Environments**.
+2. Click **New environment** and enter name: `production`.
+3. Under **Deployment protection rules**, enable **Required reviewers** and select authorized reviewers.
+4. Click **Save protection rules**.
+5. Create a second environment named `development` with no protection rules for automated continuous deployment.
+
+### Manual Deployment & Rollback Procedure
+
+All production container images are tagged with immutable commit SHAs. If a regression occurs in production, rollback is performed by redeploying the previous image tag:
+
+#### Option A: Rollback via GitHub Actions
+1. Open **Actions** > **CD** workflow in GitHub.
+2. Click **Run workflow**.
+3. In **Specific image tag to deploy or rollback to**, enter the previous commit SHA (e.g. `44e5d654...`).
+4. Click **Run workflow** and approve the production deployment review gate.
+
+#### Option B: Direct Rollback on the VM
+Execute Docker Compose with the previous immutable image tag:
+
+```bash
+# 1. Pull the previous image tag
+IMAGE_TAG=<previous_commit_sha> docker compose -f compose.prod.yaml pull
+
+# 2. Redeploy previous container images (named volumes persist intact)
+IMAGE_TAG=<previous_commit_sha> docker compose -f compose.prod.yaml up -d --remove-orphans
+
+# 3. Verify services are healthy
+docker compose -f compose.prod.yaml ps
+```
+
+To run the automated deployment and rollback verification test locally:
+```bash
+make rollback-test
+```
 
 ## Documentation
 

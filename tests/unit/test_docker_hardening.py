@@ -206,3 +206,28 @@ def test_load_dotenv_parses_values_and_quotes(tmp_path):
         assert os.environ.get("TEST_VAR_SINGLE") == "single quoted"
         # Existing environment variables should not be overwritten
         assert os.environ.get("ALREADY_SET") == "original_value"
+
+
+# 6. Production Compose Configuration Tests (Issue #15)
+def test_compose_prod_configuration():
+    compose_path = os.path.join(os.path.dirname(__file__), "..", "..", "compose.prod.yaml")
+    assert os.path.exists(compose_path), "compose.prod.yaml must exist"
+
+    with open(compose_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Named volumes for persistence
+    assert "metalops_postgres_data:" in content
+    assert "metalops_uploads:" in content
+
+    # Pre-built image tags with IMAGE_TAG fallback
+    assert "${IMAGE_TAG:-latest}" in content
+    assert "metalops-backend" in content
+    assert "metalops-frontend" in content
+    assert "metalops-postgres" in content
+
+    # Health checks
+    assert "healthcheck:" in content
+    assert "pg_isready" in content
+    assert "/api/ready" in content
+

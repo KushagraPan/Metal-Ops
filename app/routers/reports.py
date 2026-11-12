@@ -30,6 +30,10 @@ from app.services.reports import (
     ReportValidationError,
 )
 from app.storage import Storage, get_storage
+from app.telemetry import (
+    record_report_upload_failure,
+    record_report_upload_success,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 heat_router = APIRouter(prefix="/heats/{heat_id}/reports", tags=["reports"])
@@ -117,11 +121,22 @@ def upload_heat_report(
             grade_tested=grade_tested,
         )
     except HeatNotFound as error:
+        record_report_upload_failure("not_found")
         raise _not_found(error) from error
     except ReportValidationError as error:
+        record_report_upload_failure("validation")
         raise _validation_error(error) from error
     except ReportStorageError as error:
+        record_report_upload_failure("storage")
         raise _storage_error(error) from error
+    except Exception:
+        record_report_upload_failure("unknown")
+        raise
+    record_report_upload_success(
+        heat_id=report.heat_id,
+        report_id=report.id,
+        size_bytes=report.size_bytes,
+    )
     return report_to_read(report)
 
 

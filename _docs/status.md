@@ -1,6 +1,6 @@
 # MetalOps Lite — Project Status
 
-Last updated: Issue #13 implementation (Docker Compose for the full system).
+Last updated: Issue #16 Part 2 implementation (Compose observability stack and verified evidence).
 
 ---
 
@@ -32,7 +32,7 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
   - PostgreSQL test container (`postgres:16-alpine`), configurable `TEST_DATABASE_URL`, concurrency race protection (`FOR UPDATE`), full spec acceptance scenarios, Alembic migrations chain.
 - **[#13] Docker Compose for the full system** (Closed)
   - Pinned base images, non-root user, single backend worker, secure cookies, origin check, named volumes.
-- **[#14] CI: tests on every pull request** (Implemented — Pending Human Review)
+- **[#14] CI: tests on every pull request** (Closed)
   - GitHub Actions workflow (`.github/workflows/ci.yml`) triggering on `pull_request` and `push` to `main`.
   - Top-level `permissions: contents: read` only; concurrency group cancels superseded runs.
   - Pinned actions to full SHAs with version comments (checkout, setup-python, setup-node, gitleaks, trivy).
@@ -41,13 +41,37 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
   - Upgraded vulnerable dependencies: `python-multipart==0.0.31`, `pytest==9.0.3`, `fastapi==0.162.4`, `starlette==1.3.1`.
   - `.trivyignore` pruned to retain only zero-fix upstream CVEs with documented package, severity, reason, and 90-day expiry.
   - Removed pip internal build-time CycloneDX SBOM and ensurepip to eliminate phantom setuptools findings in container scanning.
+- **[#15] CD: deploy to dev, manual deploy to production, rollback** (Implemented — Pending Human Review)
+  - GitHub Actions CD pipeline (`.github/workflows/cd.yml`) triggers on merge to `main` and `workflow_dispatch`.
+  - Builds immutable container images tagged with commit SHA (`${{ github.sha }}`) and `latest` pushed to GHCR.
+  - Automatically deploys to `development` environment on merge to `main`.
+  - Production deployment gated behind manual review approval via GitHub Environment (`production`).
+  - Production Docker Compose configuration (`compose.prod.yaml`) targeting single VM with named volumes (`metalops_postgres_data`, `metalops_uploads`) preserving database and uploaded PDF files across restarts and tag redeployments.
+  - Application version display in UI (`data-testid="app-version"` and `login-app-version`) injected at build time (`VITE_APP_VERSION`), verified across deployment and rollback.
+  - Rollback procedure documented in `README.md` and verified with automated test suite (`make rollback-test` / `scripts/rollback_test.py`).
+- **[#16] Observability for the key journey — Parts 1 and 2** (Implemented — Pending Human Review)
+  - **Part 1 — privacy-first instrumentation:** `app/telemetry.py` installs OpenTelemetry tracing, metrics and JSON logging only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; when unset, the app and existing tests run unchanged.
+  - FastAPI HTTP spans and SQLAlchemy database spans cover the "create heat, then upload report" journey.
+  - A deny-by-default allow-list filters span attribute keys, metric label keys and log fields before export. SQL text, bodies, headers, cookies, query strings, raw paths with IDs, exception descriptions, filenames and file bytes are dropped.
+  - Metrics: request count and latency by route template, method and status class only; uploads total; upload failures by fixed reason category; upload bytes histogram.
+  - JSON logs include `trace_id` and `span_id`; OTLP logs carry the same six allow-listed fields; Uvicorn access logging is disabled.
+  - Batch exporters mean a missing Collector adds no request latency and never raises into a request.
+  - OpenTelemetry packages are pinned exactly and pass `scripts/check_pins.py` and `pip-audit`.
+  - Exact set equality assertions and negative filtering tests in `tests/unit/test_telemetry.py` prevent allowlist broadening and sentinel value leaks.
+  - **Part 2 — Compose observability stack:** `compose.observability.yaml` adds a pinned OpenTelemetry Collector, Prometheus, Loki, Tempo and Grafana under the `observability` profile.
+  - All five services have `mem_limit`; Prometheus, Loki and Tempo retain at most 48 hours. Only Grafana publishes a host port, bound to `127.0.0.1`.
+  - The backend sends OTLP to the Collector only in the observability Compose file. The Collector fans out traces to Tempo, logs to Loki over OTLP and metrics to a Prometheus-scrapable endpoint.
+  - Grafana data sources and the `metalops-key-journey` dashboard are provisioned from committed files. The Loki data source has a derived `TraceID` field linked to Tempo.
+  - Grafana admin password comes from `.env` (`GRAFANA_ADMIN_PASSWORD`), anonymous access is off, and no secret is committed.
+  - Verified with a real Compose run: the create-lot → create-heat → upload-report journey produced Prometheus metrics, a Tempo trace and a Loki JSON log line with the matching `trace_id`.
+  - Privacy check over real telemetry: the sentinel supplier, customer, rate, amount and filename strings returned zero matches in Loki, Tempo and Prometheus.
+  - Collector-down check: stopping `metalops-otel-collector` left `/api/health` and `/api/ready` returning 200 in 16 ms and 8 ms.
+  - The normal stack (`compose.yaml` without the profile) still starts and passes `make test-unit` (257 tests).
 
 ---
 
 ## 2. Deferred Items & Backlog
 
-- **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
-- **#16 [P0] Observability for the key journey** (OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana)
 - **#17 [P0] Alert on user impact**
 - **#18 [P0] On-call agent**
 - **#19 [P0] Documentation and agent team**
@@ -59,8 +83,8 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 
 ## 3. What is Next
 
-- **Human Review of Issue #14 PR**
-- Next issue in sequence: **#15 [P0] CD: deploy to dev, manual deploy to production, rollback**
+- **Human Review of Issue #16 Parts 1 and 2 PR** (branch `issue-16`).
+- Do not start #17 until #16 is reviewed and closed.
 
 ---
 

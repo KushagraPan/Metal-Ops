@@ -1,0 +1,77 @@
+name: metalops
+
+services:
+  postgres:
+    image: postgres:16.15-alpine
+    container_name: metalops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-metalops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metalops_password}
+      POSTGRES_DB: ${POSTGRES_DB:-metalops}
+    volumes:
+      - metalops_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-metalops} -d $${POSTGRES_DB:-metalops}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - metalops_network
+
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/kushagrapan/metal-ops-backend}:${IMAGE_TAG:-latest}
+    container_name: metalops-backend
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER:-metalops}:${POSTGRES_PASSWORD:-metalops_password}@postgres:5432/${POSTGRES_DB:-metalops}}
+      STORAGE_DIR: /app/storage
+      OWNER_EMAIL: ${OWNER_EMAIL:-}
+      OWNER_PASSWORD: ${OWNER_PASSWORD:-}
+      SEED_DEMO: ${SEED_DEMO:-0}
+      ENV: ${ENV:-production}
+      TZ: Asia/Kolkata
+      APP_VERSION: ${IMAGE_TAG:-dev}
+    volumes:
+      - metalops_uploads:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - metalops_network
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/kushagrapan/metal-ops-frontend}:${IMAGE_TAG:-latest}
+    container_name: metalops-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_BIND:-0.0.0.0}:${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks:
+      - metalops_network
+
+networks:
+  metalops_network:
+    name: metalops_network
+
+volumes:
+  metalops_postgres_data:
+    name: metalops_postgres_data
+  metalops_uploads:
+    name: metalops_uploads
+
