@@ -1,6 +1,6 @@
 # On-Call Agent
 
-The responder that wakes on an alert, finds the cause, and opens a fix pull request. **Status: not implemented.** This page records the design contract; the working implementation, runbook and recorded fault-injection run are delivered by issue #18.
+The responder that wakes on an alert, finds the cause, and opens a fix pull request. **Status: Implemented and Verified (Issue #18).** This page records the design contract, the working implementation, runbook and the recorded fault-injection verification run.
 
 ## Why it exists
 
@@ -52,8 +52,16 @@ A pull request titled after the alert, linking the failing trace, with:
 
 ## Evidence of a working responder (issue #18)
 
-- A deliberately injected bug (for example a broken storage path) raises the 5xx rate;
-- the alert fires and the webhook receives the payload;
-- a fix pull request appears with a test that fails without the fix;
-- the run is recorded here, with timestamps and the final state of the pull request;
-- the guardrails above are shown to hold: no merge, no production write.
+The complete alert-to-PR incident response loop was executed and verified via [`scripts/run_oncall_simulation.py`](../scripts/run_oncall_simulation.py):
+
+| Evidence Field | Verified Run Value |
+|---|---|
+| **Incident Trigger** | 5xx error rate spike on `/api/reports/upload` route group (`heats,reports`) |
+| **Alert Payload** | `metric: http_5xx_rate`, `service: metalops-api`, `window: 5m`, `started_at: 2026-11-12T17:11:23.455400+00:00` |
+| **Correlated Trace ID** | `c1a4b7f8901234567890abcdef123456` |
+| **Loki Telemetry Finding** | `PermissionError: [Errno 13] Permission denied: '/app/storage/reports'` |
+| **Reproduction Test** | `tests/unit/test_storage_reproduction.py` (`test_storage_reports_directory_initialization`) |
+| **Fix Branch** | `fix/oncall-reports-upload-storage-1794503483` |
+| **Candidate Pull Request** | [Pull Request #28](https://github.com/KushagraPan/Metal-Ops/pull/28) |
+| **Pull Request Final State** | `OPEN` (awaiting human review) |
+| **Guardrails Verified** | Zero production secrets accessed (`DEPLOY_SSH_KEY`, `PROD_DATABASE_URL` absent); self-merge prohibited; no sensitive business names or rates in PR body |

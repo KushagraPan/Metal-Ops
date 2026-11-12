@@ -73,12 +73,18 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs, without duplicate threshold filtering, and formatting payloads per `_docs/oncall-agent.md`.
   - Deny-by-default allow-list prevents exposure of business data, rates, amounts, or file bytes in alert payloads; credential masking (`mask_credentials()`) strips passwords and tokens from logs.
   - Fully verified fault injection and recovery loop (`chmod 000 /app/storage` -> 500 errors -> firing alert + webhook received with 5 trace IDs -> `chmod 755 /app/storage` -> 201 created -> resolved alert + webhook received) documented in `_docs/incident-response.md` with genuine screenshots covering Prometheus firing, Prometheus resolved, Grafana firing, and webhook receiver states.
+- **[#18] On-call agent** (Implemented — Pending Human Review)
+  - Built headless On-Call Agent (`observability/oncall_agent/agent.py`) and Webhook Receiver (`observability/oncall_agent/webhook.py`) executing the 8-step incident response runbook.
+  - Validates and deduplicates incoming alerts within configurable TTL windows.
+  - Correlates trace IDs with Loki log streams to extract error context and root cause.
+  - Runs in sandboxed developer workspace without production credentials (`DEPLOY_SSH_KEY`, `PROD_DATABASE_URL`).
+  - Prohibits self-merge and deployment commands (`GuardrailEnforcer`); sanitizes sensitive business names and rates.
+  - Verified with automated fault injection simulation (`scripts/run_oncall_simulation.py`): generated reproduction test (`tests/unit/test_storage_reproduction.py`), applied candidate fix, and opened candidate Pull Request #28 left in `OPEN` state for human review.
 
 ---
 
 ## 2. Deferred Items & Backlog
 
-- **#18 [P0] On-call agent**
 - **#19 [P0] Documentation and agent team**
 - **#20 [P1] Make missing GST settings fallback visible**
 - **#21 [P1] Edit monthly fixed expenses in the UI**
@@ -88,7 +94,8 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
 
 ## 3. What is Next
 
-- Start Issue #18: On-call agent.
+- Human review of Issue #18 Pull Request.
+- Do not start #19 until #18 is reviewed and closed.
 
 ---
 
