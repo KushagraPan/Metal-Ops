@@ -1,0 +1,23 @@
+# Alerting rules for MetalOps Lite (Issue #17)
+# Evaluated by Prometheus every evaluation_interval (15s).
+
+groups:
+  - name: metalops-impact-alerts
+    rules:
+      - alert: HeatReportHigh5xxRate
+        # 5xx error-rate ratio threshold on heat and report endpoints over 5m.
+        # Numerator: rate of 5xx requests on heats/reports routes.
+        # Denominator: total rate of requests on heats/reports routes.
+        # Configurable threshold: fires when the 5xx error rate ratio exceeds 0.05 (5%) continuously for 5 minutes.
+        expr: (sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*", http_status_class="5xx"}[5m])) / sum(rate(http_server_request_count_total{http_route=~".*(heats|reports).*"}[5m]))) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: metalops-api
+          route_group: heats,reports
+          metric: http_5xx_rate
+          window: 5m
+        annotations:
+          summary: "5xx error rate ratio on heat/report endpoints exceeded threshold for 5m"
+          description: "Elevated 5xx error rate ratio detected on heats and reports route group continuously for 5 minutes."
+          value: "{{ $value }}"

@@ -40,8 +40,46 @@ services:
       - --web.enable-lifecycle
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
       - metalops_prometheus_data:/prometheus
     mem_limit: 512m
+    depends_on:
+      - alertmanager
+    networks:
+      - metalops_network
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: metalops-alertmanager
+    restart: unless-stopped
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - metalops_alertmanager_data:/alertmanager
+    mem_limit: 128m
+    depends_on:
+      - alert-adapter
+    networks:
+      - metalops_network
+
+  alert-adapter:
+    image: python:3.11.18-slim-bookworm
+    container_name: metalops-alert-adapter
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ["python", "/app/observability/alert_adapter/adapter.py"]
+    volumes:
+      - ./observability/alert_adapter:/app/observability/alert_adapter:ro
+    environment:
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      LOKI_URL: http://loki:3100
+      PORT: 9097
+    mem_limit: 128m
+    depends_on:
+      - loki
     networks:
       - metalops_network
 
@@ -101,6 +139,8 @@ services:
 volumes:
   metalops_prometheus_data:
     name: metalops_prometheus_data
+  metalops_alertmanager_data:
+    name: metalops_alertmanager_data
   metalops_loki_data:
     name: metalops_loki_data
   metalops_tempo_data:

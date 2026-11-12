@@ -1,0 +1,17 @@
+# Alertmanager configuration for MetalOps Lite (Issue #17)
+
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'service', 'route_group']
+  group_wait: 5s
+  group_interval: 10s
+  repeat_interval: 1m
+  receiver: 'alert-adapter'
+
+receivers:
+  - name: 'alert-adapter'
+    webhook_configs:
+      - url: 'http://alert-adapter:9097/alerts'
+        send_resolved: true
