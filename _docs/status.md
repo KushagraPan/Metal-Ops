@@ -67,7 +67,7 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - Privacy check over real telemetry: the sentinel supplier, customer, rate, amount and filename strings returned zero matches in Loki, Tempo and Prometheus.
   - Collector-down check: stopping `metalops-otel-collector` left `/api/health` and `/api/ready` returning 200 in 16 ms and 8 ms.
   - The normal stack (`compose.yaml` without the profile) still starts and passes `make test-unit` (257 tests).
-- **[#17] Alert on user impact** (Implemented — Pending Human Review)
+- **[#17] Alert on user impact** (Closed)
   - Configured Prometheus alert rule `HeatReportHigh5xxRate` (`observability/prometheus/alert_rules.yml`) evaluating the 5xx error-rate ratio on heat/report endpoints (`sum(rate(...5xx...[5m])) / sum(rate(......[5m])) > 0.05`) with `for: 5m` applying directly to the configurable ratio threshold.
   - Integrated Alertmanager (`prom/alertmanager:v0.28.1`) routing to `alert-adapter` with `send_resolved: true`.
   - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs, without duplicate threshold filtering, and formatting payloads per `_docs/oncall-agent.md`.
@@ -88,8 +88,7 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
 
 ## 3. What is Next
 
-- **Human Review of Issue #17 PR** (branch `issue-16`).
-- Do not start #18 until #17 is reviewed and closed.
+- Start Issue #18: On-call agent.
 
 ---
 
