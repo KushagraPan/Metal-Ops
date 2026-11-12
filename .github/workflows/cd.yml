@@ -31,7 +31,7 @@ jobs:
       frontend_image: ${{ steps.set-tag.outputs.frontend_image }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Determine image tag and repository names
         id: set-tag
@@ -53,7 +53,7 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         if: steps.set-tag.outputs.build_needed == 'true'
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -103,7 +103,7 @@ jobs:
       FRONTEND_IMAGE: ${{ needs.build.outputs.frontend_image }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Deploy to Development VM via SSH
         if: env.DEPLOY_HOST != ''
@@ -139,7 +139,7 @@ jobs:
       FRONTEND_IMAGE: ${{ needs.build.outputs.frontend_image }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Deploy to Production VM via SSH
         if: env.DEPLOY_HOST != ''
