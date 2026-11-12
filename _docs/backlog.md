@@ -353,11 +353,18 @@ Labels: observability · Depends on: #13
 Instrument "create heat, then upload report" with OpenTelemetry, with Collector, Prometheus, Loki, Tempo and Grafana in the Compose stack.
 
 Acceptance criteria:
-- Metrics (request count and latency per route, uploads, upload failures, upload bytes), traces and structured logs are visible in Grafana.
-- Logs carry the trace ID of the request.
-- Telemetry contains no supplier or customer names, rates, amounts, or file contents (checked by a test on the exported attributes).
+- The "create heat, then upload report" journey is instrumented end to end: HTTP spans, SQLAlchemy database spans, request metrics and JSON logs.
+- A deny-by-default allow-list governs span attribute keys, metric label keys and log fields. Anything not on the list is dropped before export.
+- Exported telemetry contains no SQL text, request or response bodies, headers, cookies, query strings, raw paths containing IDs, exception messages containing input, uploaded filenames or file bytes.
+- Request metrics use only route template, method and status class. Upload metrics are uploads total, upload failures by a fixed reason category, and an upload bytes histogram.
+- Every JSON log line carries `trace_id` and `span_id`.
+- OTLP export is configured by `OTEL_EXPORTER_OTLP_ENDPOINT` and is off by default, so the app and existing tests run unchanged when it is unset.
+- A Collector or exporter outage adds no request latency and does not break the application.
+- Uvicorn access logs are disabled or filtered.
+- OpenTelemetry packages are pinned exactly and pass `pip-audit` and `scripts/check_pins.py`.
+- The Compose observability stack (Collector, Prometheus, Loki, Tempo, Grafana), dashboard provisioning, image pins and retention limits are Part 2 and are out of scope here.
 
-Tests: unit test on the log and span attribute allow-list.
+Tests: unit test on the log, span attribute and metric label allow-list; sentinel-values journey test over exported spans, metrics and logs; Collector-down request test.
 
 ## #17 [P0] Alert on user impact
 Labels: observability · Depends on: #16

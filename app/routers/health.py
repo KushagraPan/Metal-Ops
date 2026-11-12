@@ -30,7 +30,9 @@ def ready(session: SessionDep) -> dict[str, str]:
         session.execute(text("SELECT 1"))
         return {"status": "ready"}
     except Exception as error:
-        logger.warning("Readiness probe failed: %s", error)
+        logger.warning(
+            "Readiness probe failed: %s", type(error).__name__
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database unavailable: {error}",

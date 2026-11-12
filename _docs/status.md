@@ -1,6 +1,6 @@
 # MetalOps Lite — Project Status
 
-Last updated: Issue #13 implementation (Docker Compose for the full system).
+Last updated: Issue #16 Part 1 implementation (privacy-first OpenTelemetry instrumentation).
 
 ---
 
@@ -49,12 +49,20 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
   - Production Docker Compose configuration (`compose.prod.yaml`) targeting single VM with named volumes (`metalops_postgres_data`, `metalops_uploads`) preserving database and uploaded PDF files across restarts and tag redeployments.
   - Application version display in UI (`data-testid="app-version"` and `login-app-version`) injected at build time (`VITE_APP_VERSION`), verified across deployment and rollback.
   - Rollback procedure documented in `README.md` and verified with automated test suite (`make rollback-test` / `scripts/rollback_test.py`).
+- **[#16] Observability for the key journey — Part 1** (Implemented — Pending Human Review)
+  - `app/telemetry.py` installs OpenTelemetry tracing, metrics and JSON logging only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; when unset, the app and existing tests run unchanged.
+  - FastAPI HTTP spans and SQLAlchemy database spans cover the "create heat, then upload report" journey.
+  - A deny-by-default allow-list filters span attribute keys, metric label keys and log fields before export. SQL text, bodies, headers, cookies, query strings, raw paths with IDs, exception descriptions, filenames and file bytes are dropped.
+  - Metrics: request count and latency by route template, method and status class only; uploads total; upload failures by fixed reason category; upload bytes histogram.
+  - JSON logs include `trace_id` and `span_id`; Uvicorn access logging is disabled.
+  - Batch exporters mean a missing Collector adds no request latency and never raises into a request.
+  - OpenTelemetry packages are pinned exactly and pass `scripts/check_pins.py` and `pip-audit`.
 
 ---
 
 ## 2. Deferred Items & Backlog
 
-- **#16 [P0] Observability for the key journey** (OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana)
+- **#16 [P0] Observability for the key journey — Part 2** (Compose observability profile: OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana; pinned images, memory limits, ≤48h retention, Grafana provisioning and dashboard, `.env` admin password, README and screenshots)
 - **#17 [P0] Alert on user impact**
 - **#18 [P0] On-call agent**
 - **#19 [P0] Documentation and agent team**
@@ -66,8 +74,9 @@ Last updated: Issue #13 implementation (Docker Compose for the full system).
 
 ## 3. What is Next
 
-- **Human Review of Issue #15 PR**
-- Next issue in sequence: **#16 [P0] Observability for the key journey**
+- **Human Review of Issue #16 Part 1 PR**
+- **#16 Part 2 next steps:** add the Compose observability file/profile with pinned Collector, Prometheus, Loki, Tempo and Grafana images; set memory limits and ≤48h retention; provision the Grafana datasources and key-journey dashboard; document the `.env` admin password; update the README and capture screenshots.
+- Do not start #17 until #16 is reviewed and closed.
 
 ---
 

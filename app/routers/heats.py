@@ -21,6 +21,7 @@ from app.services.heats import (
     HeatService,
     HeatView,
 )
+from app.telemetry import record_created_heat
 
 router = APIRouter(prefix="/heats", tags=["heats"])
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -99,13 +100,15 @@ def list_heats(
 )
 def create_heat(data: HeatWrite, session: SessionDep) -> HeatRead:
     try:
-        return _to_read(HeatService(session).create(data))
+        view = HeatService(session).create(data)
     except HeatNoConflict as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(error)
         ) from error
     except HeatRuleError as error:
         _raise_rule_error(error)
+    record_created_heat(view.heat.id)
+    return _to_read(view)
 
 
 @router.get("/{heat_id}", response_model=HeatRead)

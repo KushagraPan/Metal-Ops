@@ -11,7 +11,7 @@ from fastapi import Depends, FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 import app.env  # noqa: F401 - ensures .env is loaded early
-from app.db import SessionLocal
+from app.db import SessionLocal, engine
 from app.routers import (
     auth,
     dashboard,
@@ -23,6 +23,7 @@ from app.routers import (
     sales,
 )
 from app.services.auth import ensure_owner_account
+from app.telemetry import configure_telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,9 @@ async def lifespan(app: FastAPI):
         with SessionLocal() as session:
             ensure_owner_account(session)
     except Exception as error:
-        logger.exception("Failed to bootstrap owner account: %s", error)
+        logger.exception(
+            "Failed to bootstrap owner account: %s", type(error).__name__
+        )
     yield
 
 
@@ -112,6 +115,8 @@ def create_app() -> FastAPI:
     application.include_router(reports.heat_router, prefix="/api", dependencies=auth_deps)
     application.include_router(reports.router, prefix="/api", dependencies=auth_deps)
     application.include_router(sales.router, prefix="/api", dependencies=auth_deps)
+
+    configure_telemetry(application, engine)
 
     return application
 
