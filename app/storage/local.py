@@ -38,7 +38,11 @@ class LocalStorage:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def save(self, chunks: Iterable[bytes]) -> StoredFile:
-        self.root.mkdir(parents=True, exist_ok=True)
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            raise StorageError(f"could not access storage directory: {error}") from error
+
         key = f"{uuid4().hex}.pdf"
         path = self._path(key)
         size_bytes = 0
@@ -49,8 +53,17 @@ class LocalStorage:
                         continue
                     handle.write(chunk)
                     size_bytes += len(chunk)
+        except OSError as error:
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            raise StorageError(f"could not write report file: {error}") from error
         except Exception:
-            path.unlink(missing_ok=True)
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
             raise
         return StoredFile(key=key, size_bytes=size_bytes)
 
@@ -60,6 +73,8 @@ class LocalStorage:
             return path.open("rb")
         except FileNotFoundError as error:
             raise StorageNotFound("report file not found") from error
+        except OSError as error:
+            raise StorageError(f"could not read report file: {error}") from error
 
     def delete(self, key: str) -> None:
         try:
