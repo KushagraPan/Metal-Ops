@@ -34,18 +34,59 @@ from app.models.user import User
 from app.routers.auth import require_session
 from app.storage import LocalStorage, get_storage
 from app.telemetry import (
-    LOG_FIELD_ALLOWLIST,
-    METRIC_LABEL_ALLOWLIST,
-    METRIC_NAME_ALLOWLIST,
-    SPAN_ATTRIBUTE_ALLOWLIST,
     JsonLogFormatter,
     SanitizingMetricExporter,
+    SanitizingSpanExporter,
     configure_json_logging,
     configure_telemetry,
     normalize_route,
     sanitize_metric_attributes,
     sanitize_span_attributes,
     shutdown_telemetry,
+)
+
+EXPECTED_SPAN_ATTRIBUTE_ALLOWLIST = frozenset(
+    {
+        "http.method",
+        "http.route",
+        "http.status_code",
+        "http.status_class",
+        "db.system",
+        "db.operation",
+        "app.heat.id",
+        "app.report.id",
+        "app.report.size_bytes",
+    }
+)
+
+EXPECTED_METRIC_LABEL_ALLOWLIST = frozenset(
+    {
+        "http.route",
+        "http.method",
+        "http.status_class",
+        "reason",
+    }
+)
+
+EXPECTED_METRIC_NAME_ALLOWLIST = frozenset(
+    {
+        "http.server.request.count",
+        "http.server.request.duration",
+        "report.upload.count",
+        "report.upload.failures",
+        "report.upload.bytes",
+    }
+)
+
+EXPECTED_LOG_FIELD_ALLOWLIST = frozenset(
+    {
+        "timestamp",
+        "level",
+        "logger",
+        "message",
+        "trace_id",
+        "span_id",
+    }
 )
 
 SENTINEL_SUPPLIER = "SENTINEL-SUPPLIER-7f3a"
@@ -202,7 +243,14 @@ def test_span_allowlist_drops_private_keys() -> None:
 
     result = sanitize_span_attributes(attributes)
 
-    assert set(result) <= SPAN_ATTRIBUTE_ALLOWLIST
+    assert set(result) == EXPECTED_SPAN_ATTRIBUTE_ALLOWLIST - {
+        "http.status_class",
+        "app.heat.id",
+        "app.report.id",
+        "app.report.size_bytes",
+    }
+    import app.telemetry as app_telemetry
+    assert app_telemetry.SPAN_ATTRIBUTE_ALLOWLIST == EXPECTED_SPAN_ATTRIBUTE_ALLOWLIST
     assert result["http.method"] == "POST"
     assert result["http.route"] == "/api/heats/{id}/reports"
     assert result["http.status_code"] == 201
@@ -236,7 +284,9 @@ def test_metric_allowlist_is_exact_and_fixed() -> None:
 
     result = sanitize_metric_attributes(attributes)
 
-    assert set(result) <= METRIC_LABEL_ALLOWLIST
+    assert set(result) == EXPECTED_METRIC_LABEL_ALLOWLIST
+    import app.telemetry as app_telemetry
+    assert app_telemetry.METRIC_LABEL_ALLOWLIST == EXPECTED_METRIC_LABEL_ALLOWLIST
     assert result == {
         "http.route": "/api/heats/{id}/reports",
         "http.method": "POST",
@@ -294,7 +344,7 @@ def test_metric_exporter_strips_private_labels() -> None:
             for scope_metrics in resource_metrics.scope_metrics
             for metric in scope_metrics.metrics
         ]
-        assert {metric.name for metric in exported} <= METRIC_NAME_ALLOWLIST
+        assert {metric.name for metric in exported} <= EXPECTED_METRIC_NAME_ALLOWLIST
         assert [metric.name for metric in exported] == [
             "http.server.request.count"
         ]
@@ -365,7 +415,9 @@ def test_json_logs_carry_trace_ids_and_drop_extra_fields() -> None:
         payload = json.loads(stream.getvalue().strip())
         context = span.get_span_context()
 
-        assert set(payload) == LOG_FIELD_ALLOWLIST
+        assert set(payload) == EXPECTED_LOG_FIELD_ALLOWLIST
+        import app.telemetry as app_telemetry
+        assert app_telemetry.LOG_FIELD_ALLOWLIST == EXPECTED_LOG_FIELD_ALLOWLIST
         assert payload["message"] == "Report upload stored"
         assert payload["trace_id"] == format_trace_id(context.trace_id)
         assert payload["span_id"] == format_span_id(context.span_id)
@@ -587,7 +639,7 @@ def test_sentinel_values_never_reach_exported_telemetry(
         ]
         assert log_lines
         for line in log_lines:
-            assert set(line) == LOG_FIELD_ALLOWLIST
+            assert set(line) == EXPECTED_LOG_FIELD_ALLOWLIST
             assert line["trace_id"]
             assert line["span_id"]
         assert not any(
@@ -596,6 +648,101 @@ def test_sentinel_values_never_reach_exported_telemetry(
 
         telemetry_logger.removeHandler(log_handler)
         telemetry_logger.propagate = True
+
+
+def test_filters_drop_forbidden_keys_and_sentinel_values() -> None:
+    """Explicitly push forbidden keys and sentinels through span, metric and log filters."""
+    # 1. Span attribute filter via SanitizingSpanExporter
+    raw_span_attributes = {
+        "http.method": "POST",
+        "http.route": "/api/purchases",
+        "supplier": SENTINEL_SUPPLIER,
+        "customer": SENTINEL_CUSTOMER,
+        "rate": SENTINEL_RATE,
+        "amount": SENTINEL_AMOUNT,
+        "filename": SENTINEL_FILENAME,
+        "db.statement": f"SELECT * FROM lot WHERE supplier = '{SENTINEL_SUPPLIER}'",
+        "notes": f"Payment to {SENTINEL_SUPPLIER}",
+    }
+    sanitized_spans = sanitize_span_attributes(raw_span_attributes)
+    serialized_spans = json.dumps(sanitized_spans)
+    for forbidden_key in (
+        "supplier",
+        "customer",
+        "rate",
+        "amount",
+        "filename",
+        "db.statement",
+        "notes",
+    ):
+        assert forbidden_key not in sanitized_spans
+    for sentinel in (
+        SENTINEL_SUPPLIER,
+        SENTINEL_CUSTOMER,
+        SENTINEL_RATE,
+        SENTINEL_AMOUNT,
+        SENTINEL_FILENAME,
+    ):
+        assert sentinel not in serialized_spans
+
+    # 2. Metric attribute filter via sanitize_metric_attributes
+    raw_metric_attributes = {
+        "http.route": "/api/heats/1",
+        "http.method": "GET",
+        "http.status_class": "2xx",
+        "reason": "validation",
+        "supplier": SENTINEL_SUPPLIER,
+        "customer": SENTINEL_CUSTOMER,
+        "rate": SENTINEL_RATE,
+        "amount": SENTINEL_AMOUNT,
+        "filename": SENTINEL_FILENAME,
+    }
+    sanitized_metrics = sanitize_metric_attributes(raw_metric_attributes)
+    serialized_metrics = json.dumps(sanitized_metrics)
+    for forbidden_key in ("supplier", "customer", "rate", "amount", "filename"):
+        assert forbidden_key not in sanitized_metrics
+    for sentinel in (
+        SENTINEL_SUPPLIER,
+        SENTINEL_CUSTOMER,
+        SENTINEL_RATE,
+        SENTINEL_AMOUNT,
+        SENTINEL_FILENAME,
+    ):
+        assert sentinel not in serialized_metrics
+
+    # 3. Log formatter filter via JsonLogFormatter
+    formatter = JsonLogFormatter()
+    record = logging.LogRecord(
+        name="app.test",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg="Safe message with no sentinels",
+        args=(),
+        exc_info=None,
+    )
+    record.__dict__.update(
+        {
+            "supplier": SENTINEL_SUPPLIER,
+            "customer": SENTINEL_CUSTOMER,
+            "rate": SENTINEL_RATE,
+            "amount": SENTINEL_AMOUNT,
+            "filename": SENTINEL_FILENAME,
+        }
+    )
+    formatted_log = formatter.format(record)
+    parsed_log = json.loads(formatted_log)
+    assert set(parsed_log) == EXPECTED_LOG_FIELD_ALLOWLIST
+    for forbidden_key in ("supplier", "customer", "rate", "amount", "filename"):
+        assert forbidden_key not in parsed_log
+    for sentinel in (
+        SENTINEL_SUPPLIER,
+        SENTINEL_CUSTOMER,
+        SENTINEL_RATE,
+        SENTINEL_AMOUNT,
+        SENTINEL_FILENAME,
+    ):
+        assert sentinel not in formatted_log
 
 
 def test_collector_down_does_not_delay_or_break_requests(

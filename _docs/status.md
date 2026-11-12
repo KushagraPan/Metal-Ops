@@ -57,6 +57,7 @@ Last updated: Issue #16 Part 1 implementation (privacy-first OpenTelemetry instr
   - JSON logs include `trace_id` and `span_id`; Uvicorn access logging is disabled.
   - Batch exporters mean a missing Collector adds no request latency and never raises into a request.
   - OpenTelemetry packages are pinned exactly and pass `scripts/check_pins.py` and `pip-audit`.
+  - Exact set equality assertions and negative filtering tests in `tests/unit/test_telemetry.py` prevent allowlist broadening and sentinel value leaks.
 
 ---
 
