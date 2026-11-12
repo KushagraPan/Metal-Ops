@@ -1,6 +1,6 @@
 # MetalOps Lite — Project Status
 
-Last updated: Issue #16 Part 1 implementation (privacy-first OpenTelemetry instrumentation).
+Last updated: Issue #16 Part 2 implementation (Compose observability stack and verified evidence).
 
 ---
 
@@ -49,21 +49,29 @@ Last updated: Issue #16 Part 1 implementation (privacy-first OpenTelemetry instr
   - Production Docker Compose configuration (`compose.prod.yaml`) targeting single VM with named volumes (`metalops_postgres_data`, `metalops_uploads`) preserving database and uploaded PDF files across restarts and tag redeployments.
   - Application version display in UI (`data-testid="app-version"` and `login-app-version`) injected at build time (`VITE_APP_VERSION`), verified across deployment and rollback.
   - Rollback procedure documented in `README.md` and verified with automated test suite (`make rollback-test` / `scripts/rollback_test.py`).
-- **[#16] Observability for the key journey — Part 1** (Implemented — Pending Human Review)
-  - `app/telemetry.py` installs OpenTelemetry tracing, metrics and JSON logging only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; when unset, the app and existing tests run unchanged.
+- **[#16] Observability for the key journey — Parts 1 and 2** (Implemented — Pending Human Review)
+  - **Part 1 — privacy-first instrumentation:** `app/telemetry.py` installs OpenTelemetry tracing, metrics and JSON logging only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; when unset, the app and existing tests run unchanged.
   - FastAPI HTTP spans and SQLAlchemy database spans cover the "create heat, then upload report" journey.
   - A deny-by-default allow-list filters span attribute keys, metric label keys and log fields before export. SQL text, bodies, headers, cookies, query strings, raw paths with IDs, exception descriptions, filenames and file bytes are dropped.
   - Metrics: request count and latency by route template, method and status class only; uploads total; upload failures by fixed reason category; upload bytes histogram.
-  - JSON logs include `trace_id` and `span_id`; Uvicorn access logging is disabled.
+  - JSON logs include `trace_id` and `span_id`; OTLP logs carry the same six allow-listed fields; Uvicorn access logging is disabled.
   - Batch exporters mean a missing Collector adds no request latency and never raises into a request.
   - OpenTelemetry packages are pinned exactly and pass `scripts/check_pins.py` and `pip-audit`.
   - Exact set equality assertions and negative filtering tests in `tests/unit/test_telemetry.py` prevent allowlist broadening and sentinel value leaks.
+  - **Part 2 — Compose observability stack:** `compose.observability.yaml` adds a pinned OpenTelemetry Collector, Prometheus, Loki, Tempo and Grafana under the `observability` profile.
+  - All five services have `mem_limit`; Prometheus, Loki and Tempo retain at most 48 hours. Only Grafana publishes a host port, bound to `127.0.0.1`.
+  - The backend sends OTLP to the Collector only in the observability Compose file. The Collector fans out traces to Tempo, logs to Loki over OTLP and metrics to a Prometheus-scrapable endpoint.
+  - Grafana data sources and the `metalops-key-journey` dashboard are provisioned from committed files. The Loki data source has a derived `TraceID` field linked to Tempo.
+  - Grafana admin password comes from `.env` (`GRAFANA_ADMIN_PASSWORD`), anonymous access is off, and no secret is committed.
+  - Verified with a real Compose run: the create-lot → create-heat → upload-report journey produced Prometheus metrics, a Tempo trace and a Loki JSON log line with the matching `trace_id`.
+  - Privacy check over real telemetry: the sentinel supplier, customer, rate, amount and filename strings returned zero matches in Loki, Tempo and Prometheus.
+  - Collector-down check: stopping `metalops-otel-collector` left `/api/health` and `/api/ready` returning 200 in 16 ms and 8 ms.
+  - The normal stack (`compose.yaml` without the profile) still starts and passes `make test-unit` (257 tests).
 
 ---
 
 ## 2. Deferred Items & Backlog
 
-- **#16 [P0] Observability for the key journey — Part 2** (Compose observability profile: OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana; pinned images, memory limits, ≤48h retention, Grafana provisioning and dashboard, `.env` admin password, README and screenshots)
 - **#17 [P0] Alert on user impact**
 - **#18 [P0] On-call agent**
 - **#19 [P0] Documentation and agent team**
@@ -75,8 +83,7 @@ Last updated: Issue #16 Part 1 implementation (privacy-first OpenTelemetry instr
 
 ## 3. What is Next
 
-- **Human Review of Issue #16 Part 1 PR**
-- **#16 Part 2 next steps:** add the Compose observability file/profile with pinned Collector, Prometheus, Loki, Tempo and Grafana images; set memory limits and ≤48h retention; provision the Grafana datasources and key-journey dashboard; document the `.env` admin password; update the README and capture screenshots.
+- **Human Review of Issue #16 Parts 1 and 2 PR** (branch `issue-16`).
 - Do not start #17 until #16 is reviewed and closed.
 
 ---

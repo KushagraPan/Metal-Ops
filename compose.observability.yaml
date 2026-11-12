@@ -1,0 +1,109 @@
+name: metalops
+
+# Observability add-on. Enable with:
+#   docker compose -f compose.yaml -f compose.observability.yaml \
+#     --profile observability up -d --wait
+#
+# Only Grafana publishes a host port (loopback). Everything else stays on the
+# internal Compose network. All data retention is capped at 48 hours.
+
+services:
+  backend:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    container_name: metalops-otel-collector
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./observability/otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    mem_limit: 256m
+    depends_on:
+      - tempo
+      - loki
+      - prometheus
+    networks:
+      - metalops_network
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    container_name: metalops-prometheus
+    restart: unless-stopped
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=48h
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - metalops_prometheus_data:/prometheus
+    mem_limit: 512m
+    networks:
+      - metalops_network
+
+  loki:
+    image: grafana/loki:3.6.20
+    container_name: metalops-loki
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - metalops_loki_data:/loki
+    mem_limit: 512m
+    networks:
+      - metalops_network
+
+  tempo:
+    image: grafana/tempo:2.9.1
+    container_name: metalops-tempo
+    restart: unless-stopped
+    profiles: ["observability"]
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./observability/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - metalops_tempo_data:/var/tempo
+    mem_limit: 512m
+    networks:
+      - metalops_network
+
+  grafana:
+    image: grafana/grafana:12.4.15
+    container_name: metalops-grafana
+    restart: unless-stopped
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set in .env}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SERVER_ROOT_URL: http://127.0.0.1:${GRAFANA_PORT:-3001}
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - metalops_grafana_data:/var/lib/grafana
+    mem_limit: 512m
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - metalops_network
+
+volumes:
+  metalops_prometheus_data:
+    name: metalops_prometheus_data
+  metalops_loki_data:
+    name: metalops_loki_data
+  metalops_tempo_data:
+    name: metalops_tempo_data
+  metalops_grafana_data:
+    name: metalops_grafana_data

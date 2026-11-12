@@ -21,6 +21,16 @@ from typing import Any, Mapping, Sequence
 
 from fastapi import FastAPI
 from opentelemetry import metrics, trace
+from opentelemetry.sdk._logs import (
+    LoggerProvider,
+    LoggingHandler,
+    ReadableLogRecord,
+)
+from opentelemetry.sdk._logs._internal import LogRecord
+from opentelemetry.sdk._logs.export import (
+    BatchLogRecordProcessor,
+    LogRecordExporter,
+)
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import (
     MetricExporter,
@@ -108,9 +118,11 @@ _upload_bytes: metrics.Histogram | None = None
 
 _tracer_provider: TracerProvider | None = None
 _meter_provider: MeterProvider | None = None
+_logger_provider: LoggerProvider | None = None
 _configured = False
 
 _JSON_HANDLER_ATTR = "_metalops_json_handler"
+_OTLP_LOG_HANDLER_ATTR = "_metalops_otlp_log_handler"
 logger = logging.getLogger(__name__)
 
 
@@ -133,7 +145,7 @@ def configure_telemetry(
     json_logs: bool = True,
 ) -> bool:
     """Install tracing, metrics and JSON logs. False means telemetry is off."""
-    global _configured, _tracer_provider, _meter_provider
+    global _configured, _tracer_provider, _meter_provider, _logger_provider
 
     if _configured:
         if app is not None:
@@ -213,6 +225,8 @@ def configure_telemetry(
 
     if json_logs:
         configure_json_logging()
+        if resolved_endpoint is not None:
+            configure_otlp_logging(resource, resolved_endpoint)
 
     _configured = True
     return True
@@ -220,7 +234,7 @@ def configure_telemetry(
 
 def shutdown_telemetry() -> None:
     """Flush and stop providers. Safe to call when telemetry is off."""
-    global _configured, _tracer_provider, _meter_provider
+    global _configured, _tracer_provider, _meter_provider, _logger_provider
     global _request_counter, _request_duration, _upload_counter
     global _upload_failures, _upload_bytes
 
@@ -228,10 +242,18 @@ def shutdown_telemetry() -> None:
         _tracer_provider.shutdown()
     if _meter_provider is not None:
         _meter_provider.shutdown()
+    if _logger_provider is not None:
+        app_logger = logging.getLogger("app")
+        handler = getattr(app_logger, _OTLP_LOG_HANDLER_ATTR, None)
+        if handler is not None:
+            app_logger.removeHandler(handler)
+            delattr(app_logger, _OTLP_LOG_HANDLER_ATTR)
+        _logger_provider.shutdown()
 
     _configured = False
     _tracer_provider = None
     _meter_provider = None
+    _logger_provider = None
     _request_counter = None
     _request_duration = None
     _upload_counter = None
@@ -606,6 +628,103 @@ def _route_template(scope: Any, app: FastAPI) -> str | None:
             if path:
                 return str(path)
     return None
+
+
+class SanitizingLogExporter(LogRecordExporter):
+    """Re-write OTLP log records so only the allow-listed fields leave."""
+
+    def __init__(self, inner: LogRecordExporter) -> None:
+        self._inner = inner
+
+    def export(self, batch: Sequence[ReadableLogRecord]) -> Any:
+        return self._inner.export([sanitize_log_record(record) for record in batch])
+
+    def shutdown(self) -> None:
+        self._inner.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30_000) -> bool:
+        return self._inner.force_flush(timeout_millis)
+
+
+def sanitize_log_record(record: ReadableLogRecord) -> ReadableLogRecord:
+    """Keep the six JSON log fields and drop attributes, exceptions and events."""
+    original = record.log_record
+    message = (
+        original.body
+        if isinstance(original.body, str)
+        else str(original.body or "")
+    )
+    timestamp = ""
+    if original.timestamp is not None:
+        timestamp = datetime.fromtimestamp(
+            original.timestamp / 1_000_000_000, tz=timezone.utc
+        ).isoformat(timespec="milliseconds")
+    payload = {
+        "timestamp": timestamp,
+        "level": original.severity_text or "",
+        "logger": (
+            record.instrumentation_scope.name
+            if record.instrumentation_scope is not None
+            else ""
+        ),
+        "message": message,
+        "trace_id": (
+            format_trace_id(original.trace_id) if original.trace_id else ""
+        ),
+        "span_id": (
+            format_span_id(original.span_id) if original.span_id else ""
+        ),
+    }
+    safe_log = LogRecord(
+        timestamp=original.timestamp,
+        observed_timestamp=original.observed_timestamp,
+        context=original.context,
+        severity_text=original.severity_text,
+        severity_number=original.severity_number,
+        body=json.dumps(payload, ensure_ascii=False),
+        attributes={},
+        event_name=None,
+        exception=None,
+    )
+    return ReadableLogRecord(
+        log_record=safe_log,
+        resource=sanitize_resource(record.resource),
+        instrumentation_scope=record.instrumentation_scope,
+        limits=record.limits,
+    )
+
+
+def configure_otlp_logging(resource: Resource, endpoint: str) -> None:
+    """Send the JSON log fields to the Collector's OTLP logs pipeline."""
+    global _logger_provider
+
+    if _logger_provider is not None:
+        return
+
+    from opentelemetry.exporter.otlp.proto.http._log_exporter import (
+        OTLPLogExporter,
+    )
+
+    provider = LoggerProvider(resource=resource)
+    provider.add_log_record_processor(
+        BatchLogRecordProcessor(
+            SanitizingLogExporter(
+                OTLPLogExporter(
+                    endpoint=_signal_endpoint(endpoint, "/v1/logs"),
+                    timeout=2,
+                )
+            )
+        )
+    )
+    _logger_provider = provider
+
+    app_logger = logging.getLogger("app")
+    handler = getattr(app_logger, _OTLP_LOG_HANDLER_ATTR, None)
+    if handler is None:
+        handler = LoggingHandler(level=logging.INFO, logger_provider=provider)
+        setattr(app_logger, _OTLP_LOG_HANDLER_ATTR, handler)
+        app_logger.addHandler(handler)
+    app_logger.setLevel(logging.INFO)
 
 
 class JsonLogFormatter(logging.Formatter):

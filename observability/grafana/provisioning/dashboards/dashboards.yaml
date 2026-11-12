@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: MetalOps
+    orgId: 1
+    folder: MetalOps
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

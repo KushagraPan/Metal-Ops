@@ -141,6 +141,65 @@ make stack-persistence
 make stack-down
 ```
 
+## Observability stack (Issue #16 Part 2)
+
+The optional `observability` profile adds an OpenTelemetry Collector, Prometheus,
+Loki, Tempo and Grafana. The application stack is unchanged when the profile is
+off. Only Grafana is published, on loopback (`127.0.0.1:3001` by default); the
+Collector, Prometheus, Loki and Tempo are reachable only on the Compose network.
+
+1. **Set the Grafana admin password** in `.env` (never commit it):
+   ```bash
+   GRAFANA_ADMIN_PASSWORD=choose_a_unique_local_password
+   GRAFANA_PORT=3001
+   ```
+2. **Start the application and observability services:**
+   ```bash
+   docker compose -f compose.yaml -f compose.observability.yaml \
+     --profile observability up -d --build --wait
+   ```
+   Add `compose.test.yaml` to the `-f` list if you also need the PostgreSQL test
+   port. Without the profile, `docker compose up -d --build --wait` starts only
+   the normal PostgreSQL, backend and frontend stack.
+3. **Open Grafana** at [http://127.0.0.1:3001](http://127.0.0.1:3001) and sign in
+   as `admin` with the password from `.env`.
+
+### Privacy and retention
+
+- The backend sends OTLP to `otel-collector:4318` only in
+  `compose.observability.yaml`. If the variable is unset, telemetry stays off.
+- Span attributes, metric labels and log fields pass through the deny-by-default
+  allow-list in `app/telemetry.py`. SQL text, bodies, headers, cookies, query
+  strings, raw paths with IDs, exception text, file names and file bytes are
+  dropped before export.
+- Prometheus, Loki and Tempo retain at most 48 hours of data. Each service has a
+  Compose memory limit.
+
+### Find the key-journey evidence in Grafana
+
+1. In the app at [http://127.0.0.1:3000](http://127.0.0.1:3000), create a purchase
+   lot, create a heat from that lot, then upload a PDF spectro report for the
+   heat.
+2. Open **MetalOps → MetalOps key journey**. The dashboard shows requests by
+   route, p95 latency, report upload counts, upload failures and uploaded bytes.
+3. Open **Explore → Prometheus** and run, for example:
+   ```promql
+   sum by (http_route) (rate(http_server_request_count_total[5m]))
+   report_upload_count_total
+   ```
+4. Open **Explore → Loki** and query `{service_name="metalops-lite"}`. JSON log
+   lines include `trace_id` and `span_id`. Click the derived **TraceID** link to
+   open the same request in Tempo, or paste the ID into **Explore → Tempo**.
+5. In **Explore → Tempo**, search by service `metalops-lite` and open the
+   `POST /api/heats/{heat_id}/reports` trace. The HTTP span, SQLAlchemy spans and
+   upload metrics share that trace.
+
+To tear down only the observability services while keeping the application:
+```bash
+docker compose -f compose.yaml -f compose.observability.yaml \
+  --profile observability stop otel-collector prometheus loki tempo grafana
+```
+
 ## Continuous Integration & Branch Protection
 
 Automated verification runs on GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) on every pull request and on pushes to `main`. The pipeline comprises parallel jobs:
