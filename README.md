@@ -2,8 +2,10 @@
 
 Scrap purchasing, furnace heats, sales and spectro reports for a small aluminium recycling workshop. Computes yield, landed costs, and profit per heat, always **excluding GST**.
 
+> [!NOTE]
+> **Course Assignment & Local Demonstration**: MetalOps Lite is an educational demonstration project. Development is permanently concluded. It is designed to run locally via Docker Compose or dev scripts and is not deployed to any public cloud, live domain, or production infrastructure.
+
 [![CI](https://github.com/KushagraPan/Metal-Ops/actions/workflows/ci.yml/badge.svg)](https://github.com/KushagraPan/Metal-Ops/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
@@ -210,25 +212,29 @@ An optional observability profile adds OpenTelemetry Collector, Prometheus, Loki
 
 ---
 
-## 11. Deployment Procedure & CI/CD
+## 11. Deployment Architecture & CI/CD (Local / Demonstration)
 
-Deployment is automated via GitHub Actions ([`.github/workflows/cd.yml`](.github/workflows/cd.yml)) targeting single-host VMs with Docker Compose:
+Continuous Integration is automated via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) testing code quality, security audits, and integration tests on pull requests.
 
-### Deployment Pipeline
-1. **Merge to `main`**: Builds immutable container images tagged with the commit SHA (`ghcr.io/kushagrapan/metal-ops-backend:<sha>` and `metal-ops-frontend:<sha>`) and automatically deploys to the `development` environment.
-2. **Production Deployment Gate**: Deployments to `production` target the GitHub `production` environment and require explicit manual review and approval from designated reviewers.
-3. **Rollback Procedure**:
-   If an issue occurs in production, rollback is executed by redeploying the prior commit SHA:
+Deployment mechanics are specified in [`.github/workflows/cd.yml`](.github/workflows/cd.yml) and verified locally using Docker Compose (`compose.prod.yaml`):
+
+### Pipeline Overview
+1. **CI Verification**: Every pull request triggers supply-chain security checks (Trivy, Gitleaks, pip-audit, npm audit), Python unit and PostgreSQL integration tests, and Vite/React test suites.
+2. **Container Image Build**: Workflow definitions demonstrate container image builds tagged with commit SHAs (`${{ github.sha }}`) pushed to GHCR.
+3. **Local Single-Host Verification**:
+   The production deployment topology can be verified locally on a workstation using Docker Compose with named volumes (`metalops_postgres_data` and `metalops_uploads`):
    ```bash
-   IMAGE_TAG=<previous_commit_sha> docker compose -f compose.prod.yaml up -d --remove-orphans
+   make rollback-test    # Automated verification of container redeployment and rollback
    ```
+4. **Production Hosting Status**:
+   *Notice*: No public cloud VMs, DNS records, or live TLS endpoints are provisioned. Deployment workflows serve as local demonstration harnesses for the course assignment.
 
-### Required Deployment Secrets
-Configure these secrets in GitHub Repository Settings:
-- `DEPLOY_HOST`: Hostname or IP address of the target VM.
-- `DEPLOY_USER`: SSH user with Docker Compose access.
-- `DEPLOY_SSH_KEY`: Private SSH key authorized in the VM's `~/.ssh/authorized_keys`.
-- `OWNER_PASSWORD`: Production workshop admin password (minimum 10 characters).
+### Secret Configuration for Demonstration
+If deploying to a self-hosted Linux host:
+- `DEPLOY_HOST`: Hostname or IP address of the target host.
+- `DEPLOY_USER`: SSH user with Docker Compose privileges.
+- `DEPLOY_SSH_KEY`: Private SSH key authorized in the host's `~/.ssh/authorized_keys`.
+- `OWNER_PASSWORD`: Admin password for initial setup.
 
 ---
 
