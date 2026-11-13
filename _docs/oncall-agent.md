@@ -57,19 +57,24 @@ A pull request titled after the alert, linking the failing trace, with:
 
 ## Evidence of a working responder (issue #18)
 
-The complete alert-to-PR incident response loop was executed and verified:
+### Milestone 4 Verified Live Incident Run
 
-| Evidence Field | Verified Run Value |
-|---|---|
-| **Incident Trigger** | 5xx error rate spike on `/api/reports/upload` route group (`heats,reports`) caused by storage path disruption |
-| **Live Alert Pipeline** | `Alertmanager:9093` → `alert-adapter:9097` → `http://host.docker.internal:9999/webhook` verified across running containers |
-| **Alert Payload** | `metric: http_5xx_rate`, `service: metalops-api`, `window: 5m`, `route_group: heats,reports`, `started_at: 2026-11-12T17:11:23.455400+00:00` |
-| **Correlated Trace / Telemetry** | Correlated to route `/api/reports/upload` and storage initialization error. *(Note on Loki streams: query returned 0 historical log chunks during idle period, so the responder localized using the alert route group `heats,reports` and verified storage failure)* |
-| **Failing Reproduction Test** | `tests/unit/test_storage_reproduction.py` (`test_storage_save_auto_creates_missing_root_directory`) |
-| **Test Output Before Fix** | **FAILED (exit code 1)**: `FileNotFoundError: [Errno 2] No such file or directory: '.../missing_reports_dir/...pdf'` |
-| **Minimal Application Fix** | `app/storage/local.py:41`: `self.root.mkdir(parents=True, exist_ok=True)` in `LocalStorage.save()` |
-| **Test Output After Fix** | **PASSED (exit code 0)**: `1 passed in 0.18s` |
-| **Fix Branch** | `fix/oncall-reports-upload-storage-1794503483` |
-| **Candidate Pull Request** | [Pull Request #28](https://github.com/KushagraPan/Metal-Ops/pull/28) (commits: `18830ff`, `4b943e6`) |
-| **Pull Request Final State** | `OPEN` (never auto-merged; awaiting human review) |
-| **Guardrails Verified** | Zero production credentials present (`DEPLOY_SSH_KEY`, `PROD_DATABASE_URL` absent); self-merge and deploy commands blocked by `GuardrailEnforcer`; zero sensitive entity names/rates in PR |
+The full end-to-end incident response loop was executed with genuine telemetry, alert generation, worktree isolation, LLM candidate fix generation, test gating, and PR creation.
+
+| Incident Stage | Timestamp (UTC) | Result / Evidence |
+|---|---|---|
+| **Defect Injection** | `2026-11-13T07:01:20Z` | Injected CRLF check raising `RuntimeError("CRLF newline rejected in report notes")` in `app/services/reports.py:_clean_notes()`. Tested on disposable branch `inject-18`. |
+| **Stack & Webhook Launch** | `2026-11-13T07:11:35Z` | Stack launched with `--profile observability`, `ENV=development`. Webhook listener active on `0.0.0.0:9999` (`http://host.docker.internal:9999/webhook`). |
+| **Live Alert Generation** | `2026-11-13T07:15:30Z` | Driven with authenticated report uploads (`owner@workshop.local`) with multiline CRLF notes returning genuine HTTP 500s. |
+| **Prometheus Evaluation** | `2026-11-13T07:15:49Z` (pending)<br>`2026-11-13T07:20:49Z` (firing) | `HeatReportHigh5xxRate` evaluated with `value: 1.0` (100% 5xx error ratio). Transitioned from `pending` to `firing` after 5m window. |
+| **Alertmanager & Adapter** | `2026-11-13T07:21:04Z` | Alertmanager received firing alert (`fingerprint: 30097a58b0cc34fc`), dispatched to `alert-adapter:9097`. Adapter queried Loki on Docker network, extracted 5 active trace IDs. |
+| **Webhook Delivery** | `2026-11-13T07:21:25Z` | Webhook received enriched alert payload. SQLite atomically claimed alert; logged trace IDs and route group. |
+| **Alert Payload** | `2026-11-13T07:21:25Z` | `metric: http_5xx_rate`, `service: metalops-api`, `route_group: heats,reports`, `window: 5m`, `trace_ids: [aafcaef945e3abe216a389b88e499251, 60f254afc07e1022d210fe67b688bc8a, 7c365666acd9a0a5e20fefc37de3d94d, 9aea836b7ce83558a7028430b8127f22, 601420c09d218869d7e343852998dcda]`. |
+| **LLM Invocation & Findings** | `2026-11-13T07:26:45Z` | Invoked local LLM endpoint (Ollama `qwen2.5-coder:1.5b`). Prompt and raw responses persisted under `_docs/evidence/`.<br>*Honest assessment of LLM performance*: The zero-shot prompt accurately localized the issue to `_clean_notes` in `app/services/reports.py`, but the 1.5B model hallucinated that the exception was desired behavior and outputted python markdown rather than a unified git diff. Guided few-shot formatting was required to handhold the small model into generating exact unified diff syntax with valid line offsets. |
+| **Worktree Reproduction** | `2026-11-13T07:36:15Z` | Worker created isolated worktree `wt-oncall-f0e72f50` (branch: `oncall/f0e72f50`). Applied `tests/unit/test_reports_crlf_reproduction.py`. Reproduction test executed and **FAILED (exit code 1)**: `RuntimeError: CRLF newline rejected in report notes`. |
+| **Fix Application & Verification** | `2026-11-13T07:36:20Z` | Applied minimal app fix removing `\r\n` check from `app/services/reports.py`. Reproduction test executed and **PASSED (exit code 0)**. Full test suite ran and passed (`21 passed in 7.96s`). Git commit created in worktree. |
+| **Authenticated PR Opening** | `2026-11-13T07:36:27Z` | `open_pr()` executed with `ONCALL_GITHUB_TOKEN` in isolated `GH_CONFIG_DIR`. Pushed branch `oncall/f0e72f50` to `origin` and opened candidate PR. |
+| **Candidate Pull Request** | [Pull Request #30](https://github.com/KushagraPan/Metal-Ops/pull/30) | State: **`OPEN`** (unmerged, awaiting human review). Base: `main`, Head: `oncall/f0e72f50`. |
+| **CI Check Status** | `2026-11-13T07:36:45Z` | Workflow checks initiated and captured once: Backend Tests (`pending`), Docker Build & Trivy Scan (`pending`), Frontend Tests & Build (`pending`), Supply Chain & Security (`pending`). |
+| **Cleanup & Restoration** | `2026-11-13T07:37:30Z` | Disposable branch `inject-18` deleted. Docker compose stack stopped and networks removed. Restored `ENV=production`. Issue-18 branch kept clean. |
+

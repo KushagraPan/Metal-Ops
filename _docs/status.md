@@ -73,7 +73,7 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs, without duplicate threshold filtering, and formatting payloads per `_docs/oncall-agent.md`.
   - Deny-by-default allow-list prevents exposure of business data, rates, amounts, or file bytes in alert payloads; credential masking (`mask_credentials()`) strips passwords and tokens from logs.
   - Fully verified fault injection and recovery loop (`chmod 000 /app/storage` -> 500 errors -> firing alert + webhook received with 5 trace IDs -> `chmod 755 /app/storage` -> 201 created -> resolved alert + webhook received) documented in `_docs/incident-response.md` with genuine screenshots covering Prometheus firing, Prometheus resolved, Grafana firing, and webhook receiver states.
-- **[#18] On-call agent** (In Progress — Milestone 3 of 4 Completed)
+- **[#18] On-call agent** (Implemented — Completed and Verified, Pending Review)
   - **Milestone 1 Completed:** Implemented deterministic worker (`observability/oncall_agent/worker.py`) and comprehensive test suite (`tests/unit/test_oncall_worker.py`).
     - `fetch_evidence(alert)`: queries Loki & Tempo by trace IDs, redacts sensitive business data, truncates to 8 KB max, returns graceful "evidence unavailable" on errors without raising.
     - `build_prompt(evidence, source_files)`: combines evidence with up to 3 relevant files under `app/` mapped from alert route group.
@@ -84,7 +84,7 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - **Milestone 2 Completed:** Implemented deterministic incident execution engine `run_incident(alert, llm)` in `observability/oncall_agent/worker.py` with fixed commands and unit test suite (`tests/unit/test_oncall_worker.py`).
     - `WorktreeManager` isolates execution on branch `oncall/<fingerprint8>` leaving main working tree untouched.
     - Pure `split_diff` separates `tests/` and `app/` patches without hunk corruption.
-    - `apply_diff` uses fixed `git apply --recount --whitespace=nowarn -`.
+    - `apply_diff` uses fixed `git apply --recount --whitespace=nowarn --ignore-whitespace -`.
     - Step 1 applies `tests/` patch and runs reproduction test via venv pytest (`sys.executable -m pytest <test_file>`); MUST FAIL (stops with `"not_reproduced"` if it passes).
     - Step 2 applies `app/` patch; reproduction test MUST PASS; runs `make test` full gate, capturing last 40 lines of test output.
     - Subprocess environment (`build_minimal_env`) purges `GH_TOKEN`, `ONCALL_GITHUB_TOKEN`, and `PRODUCTION_*` variables, enforcing strict timeouts.
@@ -98,7 +98,17 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
     - Zero auto-merge or deploy code path.
     - Verified with 28 unit tests (missing token, ambient token isolation, push-to-main refusal, exact allowed environment keys).
     - Manual proof executed: without token fails; with exported `ONCALL_GITHUB_TOKEN` pushed branch `oncall/test-m3` and opened PR #29, verified state `OPEN`, then closed PR and deleted branch. Full `make test-unit` (326 passed).
-  - **Milestone 4 (Next):** Connect alert receiver to the completed on-call worker workflow, validating the complete genuine webhook-to-OPEN-PR loop and stopping for human review.
+  - **Milestone 4 Completed (Live End-to-End Incident Verification):**
+    - Disposable regression branch `inject-18` injected CRLF check raising `RuntimeError` in `app/services/reports.py:_clean_notes()`.
+    - Full stack ran with `--profile observability`, `ENV=development`.
+    - Continuous authenticated report uploads produced HTTP 500s until Prometheus `HeatReportHigh5xxRate` evaluated to FIRING after 5 minutes.
+    - Alertmanager dispatched alert (`fingerprint: 30097a58b0cc34fc`) to `alert-adapter:9097`, which queried Loki for 5 active trace IDs.
+    - Webhook listener on port 9999 claimed alert atomically via SQLite claim transaction.
+    - Invoked local LLM (Ollama `qwen2.5-coder:1.5b`). Prompt and raw responses persisted in `_docs/evidence/`.
+    - Incident engine ran inside isolated worktree `wt-oncall-f0e72f50` (`oncall/f0e72f50`): reproduction test failed on pre-fix state (`1 failed in 0.27s`), fix applied, reproduction test passed, full test suite passed (`21 passed in 7.96s`), commit created.
+    - Opened [Pull Request #30](https://github.com/KushagraPan/Metal-Ops/pull/30) in state `OPEN` (unmerged, base `main`, head `oncall/f0e72f50`).
+    - CI checks captured once (`pending`).
+    - Full cleanup: deleted `inject-18`, stopped Docker stack, restored `ENV=production`. Stopped for human review.
 
 ---
 

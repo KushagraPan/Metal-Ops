@@ -1,0 +1,24 @@
+```diff
+diff --git a/app/services/reports.py b/app/services/reports.py
+--- a/app/services/reports.py
++++ b/app/services/reports.py
+@@ -183,8 +183,6 @@
+     @staticmethod
+     def _clean_notes(value: str | None) -> str | None:
+         if value is None:
+             return None
+-        if "\r\n" in value:
+-            raise RuntimeError("CRLF newline rejected in report notes")
+         value = value.strip()
+         return value or None
+diff --git a/tests/unit/test_reports_crlf_reproduction.py b/tests/unit/test_reports_crlf_reproduction.py
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test_reports_crlf_reproduction.py
+@@ -0,0 +1,5 @@
++from app.services.reports import ReportService
++
++
++def test_clean_notes_preserves_crlf():
++    assert ReportService._clean_notes("line1\r\nline2") == "line1\r\nline2"
+```

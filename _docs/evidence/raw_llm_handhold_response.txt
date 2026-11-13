@@ -1,0 +1,34 @@
+```diff
+diff --git a/app/services/reports.py b/app/services/reports.py
+--- a/app/services/reports.py
++++ b/app/services/reports.py
+@@ -43,7 +43,7 @@ class ReportService:
+         notes = notes.replace("\n", "\r\n")
+ 
+         if "\r\n" in notes:
+-            raise RuntimeError("CRLF newline rejected in report notes")
++            raise ValueError("CRLF newline rejected in report notes")
+ 
+         return notes
+```
+
+```diff
+diff --git a/tests/unit/test_reports_crlf_reproduction.py b/tests/unit/test_reports_crlf_reproduction.py
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test_reports_crlf_reproduction.py
+@@ -0,0 +1,23 @@
++from app.services.reports import ReportService
++
++def test_clean_notes():
++    service = ReportService()
++    notes = "Line 1\r\nLine 2"
++    cleaned_notes = service._clean_notes(notes)
++    assert cleaned_notes == "Line 1\r\nLine 2", f"Expected 'Line 1\r\nLine 2', got '{cleaned_notes}'"
++
++def test_upload():
++    service = ReportService()
++    notes = "Line 1\r\nLine 2"
++    cleaned_notes = service.upload(notes)
++    assert cleaned_notes == "Line 1\r\nLine 2", f"Expected 'Line 1\r\nLine 2', got '{cleaned_notes}'"
+```

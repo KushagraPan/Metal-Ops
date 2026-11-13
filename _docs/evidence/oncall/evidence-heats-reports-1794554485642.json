@@ -1,0 +1,22 @@
+{
+  "alert": {
+    "status": "firing",
+    "service": "metalops-api",
+    "window": "5m",
+    "metric": "http_5xx_rate",
+    "route_group": "heats,reports",
+    "trace_ids": [
+      "aafcaef945e3abe216a389b88e499251",
+      "60f254afc07e1022d210fe67b688bc8a",
+      "7c365666acd9a0a5e20fefc37de3d94d",
+      "9aea836b7ce83558a7028430b8127f22",
+      "601420c09d218869d7e343852998dcda"
+    ],
+    "started_at": "2026-11-13T07:20:49.575Z",
+    "resolved_at": null
+  },
+  "branch": "fix/alert-api-heats-1794554485",
+  "worktree_path": "D:\\Project directory\\ai-devtools\\metalops-oncall-worktrees\\wt-fix-alert-api-heats-1794554485",
+  "root_cause": "5xx failure detected on route /api/heats. Error trace summary: High 5xx rate on heats,reports",
+  "recorded_at": "2026-11-13T07:21:25.642812+00:00"
+}

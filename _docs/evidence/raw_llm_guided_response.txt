@@ -1,0 +1,23 @@
+```diff
+diff --git a/app/services/reports.py b/app/services/reports.py
+--- a/app/services/reports.py
++++ b/app/services/reports.py
+@@ -13,7 +13,6 @@ class ReportService:
+     @staticmethod
+     def _clean_notes(value: str | None) -> str | None:
+         if value is None:
+-            return None
+             return value or None
+
+diff --git a/tests/unit/test_reports_crlf_reproduction.py b/tests/unit/test_reports_crlf_reproduction.py
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test_reports_crlf_reproduction.py
+@@ -0,0 +1,8 @@
++import pytest
++from app.services.reports import ReportService
++
++
++def test_clean_notes_preserves_crlf():
++    assert ReportService._clean_notes("line1\r\nline2") == "line1\r\nline2"
+```

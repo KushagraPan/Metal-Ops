@@ -441,7 +441,7 @@ def apply_diff(worktree_path: Path, patch_text: str, timeout: float = 30.0) -> N
         return
     formatted_patch = patch_text.rstrip() + "\n"
     res = subprocess.run(
-        ["git", "apply", "--recount", "--whitespace=nowarn", "-"],
+        ["git", "apply", "--recount", "--whitespace=nowarn", "--ignore-whitespace", "-"],
         input=formatted_patch,
         cwd=worktree_path,
         env=build_minimal_env(worktree_path),
