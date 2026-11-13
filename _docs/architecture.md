@@ -1,62 +1,111 @@
 # Architecture
 
-Target architecture for MetalOps Lite. The frozen specification is [`../product-spec.md`](../product-spec.md); this document explains how the code is arranged and why. Sections marked *planned* describe work not yet implemented.
+Target and production architecture for MetalOps Lite. The frozen specification is [`../product-spec.md`](../product-spec.md); this document explains how the system is layered, how components communicate, the persistence and security models, and the verified deployment topology.
 
-## 1. Shape of the system
+---
+
+## 1. System Topology & Request Flow
+
+MetalOps Lite is designed as a single-workshop, resource-efficient system. It deliberately avoids asynchronous job queues, distributed message buses, or memory caches to maintain a zero-drift single source of truth.
 
 ```mermaid
-flowchart LR
-    U[Browser<br/>React + TypeScript] -->|JSON over HTTPS| A[FastAPI<br/>routers → services → repositories]
-    A -->|SQLAlchemy 2| D[(PostgreSQL<br/>SQLite in dev)]
-    A -->|Storage interface| S[(Uploaded PDFs<br/>Docker volume)]
-    A -->|OTLP| C[OpenTelemetry Collector]
-    C --> M[Prometheus<br/>metrics]
-    C --> L[Loki<br/>logs]
-    C --> T[Tempo<br/>traces]
-    M --> G[Grafana]
-    L --> G
-    T --> G
-    G -->|5xx rate above threshold| W[Alert webhook]
-    W --> R[Responder agent]
-    R -->|fix branch + PR| H[GitHub]
+flowchart TB
+    subgraph Client["Client Tier"]
+        UI["React 18 + TypeScript SPA<br/>Vite · Tailwind CSS · shadcn/ui · Recharts"]
+    end
+
+    subgraph ReverseProxy["Ingress Tier (Production)"]
+        NGINX["Nginx 1.27 Reverse Proxy<br/>Port 3000 (HTTP / SSL termination)"]
+    end
+
+    subgraph AppServer["Application Tier"]
+        API["FastAPI 0.162 (Python 3.11)<br/>Single Uvicorn Worker"]
+        ROUTERS["Routers (/api/*)"]
+        SERVICES["Services (Domain Rules)"]
+        REPOS["Repositories (SQLAlchemy 2)"]
+        CALC["app/calc.py (Pure Functions)"]
+    end
+
+    subgraph Persistence["Storage Tier"]
+        DB[("PostgreSQL 16 Database<br/>metalops_postgres_data volume")]
+        FILES[("Local Storage Directory<br/>metalops_uploads volume (/app/storage)")]
+    end
+
+    subgraph Observability["Observability Tier (Optional Profile)"]
+        OTEL["OpenTelemetry Collector 0.165"]
+        PROM["Prometheus 3.16 (Metrics)"]
+        LOKI["Loki 3.6 (Logs)"]
+        TEMPO["Tempo 2.9 (Traces)"]
+        GRAFANA["Grafana 11.4 (Dashboards on :3001)"]
+        AM["Alertmanager 0.28"]
+        ADAPTER["Alert Adapter 9097"]
+    end
+
+    subgraph Automation["On-Call Remediation (Issue #18)"]
+        WEBHOOK["On-Call Webhook Listener (:9098 / :9999)"]
+        WORKER["Deterministic Worker + Worktree Manager"]
+        LLM["Candidate Local LLM (Ollama)"]
+    end
+
+    UI -->|HTTP / JSON API| NGINX
+    NGINX -->|Reverse Proxy /api/| API
+    API --> ROUTERS
+    ROUTERS --> SERVICES
+    SERVICES --> REPOS
+    SERVICES --> CALC
+    SERVICES --> FILES
+    REPOS -->|psycopg 3 / SQL| DB
+    API -.->|OTLP over HTTP :4318| OTEL
+    OTEL --> PROM
+    OTEL --> LOKI
+    OTEL --> TEMPO
+    PROM --> GRAFANA
+    LOKI --> GRAFANA
+    TEMPO --> GRAFANA
+    PROM -->|Firing Alerts| AM
+    AM -->|HTTP Webhook| ADAPTER
+    ADAPTER -->|Enriched Alert Payload| WEBHOOK
+    WEBHOOK --> WORKER
+    WORKER -.->|Text-only Prompt/Response| LLM
 ```
 
-One deployable backend, one static frontend, one database, one file volume. No queue, no cache, no extra services: the workload is a single workshop.
+---
 
-## 2. Backend layers
+## 2. Backend Layers & Responsibilities
 
-| Layer | Location | Responsibility | Must not |
+The backend enforces strict separation of concerns across layered modules under `app/`:
+
+| Layer | Path | Responsibility | Prohibited Actions |
 |---|---|---|---|
-| Routers | `app/routers/` | HTTP shape, auth dependency, status codes, request/response schemas | Contain money maths or queries |
-| Services | `app/services/` | Use cases, transactions, rules that need database state (R4 stock guard, R9 sale cap) | Build SQL directly |
-| Repositories | `app/repositories/` | Queries and persistence only | Decide business policy |
-| Calculation | `app/calc.py` | **All** money and weight maths, R2–R12 | Import the database, HTTP, or a model |
-| Models | `app/models/` | SQLAlchemy 2 mappings, constraints, relationships | Hold business logic |
-| Schemas | `app/schemas/` | Pydantic v2 request/response validation | Touch the database |
-| Storage | `app/storage/` | `Storage` interface and `LocalStorage` implementation | Accept a path built from user input |
+| **Routers** | `app/routers/` | HTTP request/response validation, status codes, route parameters, auth session dependency (`get_current_user`). | Must not perform SQL queries or money/weight calculations. |
+| **Services** | `app/services/` | Use cases, transaction orchestration, stateful business validation (R4 stock availability, R9 sale cap vs heat output). | Must not construct raw SQL strings or format HTTP responses. |
+| **Repositories** | `app/repositories/` | Data persistence and querying using SQLAlchemy 2 `select()` and ORM models. | Must not enforce business policies or derived calculations. |
+| **Calculation Module** | `app/calc.py` | **All** pure money and weight mathematics (R1–R12). Pure Python functions using `Decimal`. | **Zero external dependencies.** Must not import SQLAlchemy, FastAPI, or HTTP modules. |
+| **Models** | `app/models/` | SQLAlchemy 2 declarative table mappings, foreign keys, and indexes. | Must not hold domain logic or derived calculations. |
+| **Schemas** | `app/schemas/` | Pydantic v2 schemas for request validation and response serialization. | Must not touch the database or filesystem. |
+| **Storage** | `app/storage/` | Abstract `Storage` protocol and `LocalStorage` implementation for PDF reports. | Must not accept file paths derived from untrusted user input. |
 
-`calc.py` being pure is the central design decision. Every rule that affects a rupee or a kilogram is a function of values, so the worked example becomes a unit test with no fixtures, and the integration suite can only disagree with it if the wiring is wrong.
+### Architectural Decision: Pure Calculation Module (`app/calc.py`)
+All financial and weight calculations are pure functions of their inputs. They accept and return Python `Decimal` numbers quantised to 2 decimal places with `ROUND_HALF_UP` rounding. Division by zero is explicitly handled, returning `None` (`n/a`) instead of raising exceptions. This guarantees that financial rules can be exhaustively unit-tested without database mocks or fixtures.
 
-### Money and weights
+---
 
-- Python `Decimal` everywhere, never `float`.
-- SQLAlchemy `Numeric`, never `Float`.
-- Values are quantised to 2 decimal places at the boundary where they are stored or displayed.
-- Rates and amounts are **excluding GST**. GST is stored as a derived amount for the estimate only.
+## 3. Data Model & Entity Relationships
 
-## 3. Data model
+The relational schema is managed through Alembic migrations (`migrations/versions/`) and maps all money and weight columns to `Numeric(12, 2)`:
 
 ```mermaid
 erDiagram
     SETTING {
         int id PK
-        numeric gst_rate
-        numeric planned_yield_pct
+        numeric gst_rate "Default 0.18"
+        numeric planned_yield_pct "Default 89.00"
     }
     USER {
         int id PK
-        string email UK
-        string password_hash
+        string email UK "Owner / Staff login"
+        string password_hash "scrypt hash"
+        datetime created_at
     }
     PURCHASE_LOT {
         int id PK
@@ -64,60 +113,64 @@ erDiagram
         string supplier
         string notes
         numeric weight_kg
-        numeric rate_per_kg
-        string gst_mode
-        string transport_mode
+        numeric rate_per_kg "ex-GST"
+        string gst_mode "WITH or WITHOUT"
+        string transport_mode "SUPPLIER_DELIVERS or WE_PAY"
         numeric transport_cost
+        datetime created_at
     }
     HEAT {
         int id PK
-        string heat_no UK
+        string heat_no UK "Furnace batch identifier"
         date heat_date
         numeric duration_hours
         string notes
-        string alloy
-        numeric output_kg
+        string alloy "ADC12 or LM6"
+        numeric output_kg "Production ingot weight"
         numeric dross_kg
         numeric iron_scrap_kg
         numeric oil_cost
         numeric power_cost
         numeric labour_cost
         numeric other_cost
+        datetime created_at
     }
     HEAT_INPUT {
+        int id PK
         int heat_id FK
         int lot_id FK
-        numeric kg
+        numeric kg "Kilograms consumed from lot"
     }
     SALE {
         int id PK
         date sale_date
         string customer
-        string item_type
-        int heat_id FK
+        string item_type "ADC12, LM6, DROSS, IRON_SCRAP"
+        int heat_id FK "Required for alloy sales"
         numeric weight_kg
-        numeric rate_per_kg
-        string gst_mode
-        string transport_mode
+        numeric rate_per_kg "ex-GST"
+        string gst_mode "WITH or WITHOUT"
+        string transport_mode "CUSTOMER_ARRANGES, WE_PAY_ABSORB, WE_PAY_BILL"
         numeric transport_cost
         numeric transport_billed
+        datetime created_at
     }
     SPECTRO_REPORT {
         int id PK
         int heat_id FK
         string sample_no
-        string file_key
+        string file_key UK "Random UUID-based filename"
         string original_filename
         int size_bytes
         datetime uploaded_at
         string grade_tested
-        string result
+        string result "PASS, FAIL, PENDING"
         string notes
-        json elements
+        json elements "Optional chemical breakdown"
     }
     MONTHLY_EXPENSE {
         int id PK
-        string month
+        string month "YYYY-MM"
         string category
         numeric amount
     }
@@ -125,142 +178,99 @@ erDiagram
     PURCHASE_LOT ||--o{ HEAT_INPUT : "consumed by"
     HEAT ||--o{ HEAT_INPUT : "consumes"
     HEAT ||--o{ SALE : "sells alloy"
-    HEAT ||--o{ SPECTRO_REPORT : "has"
+    HEAT ||--o{ SPECTRO_REPORT : "has reports"
 ```
 
-Derived, never stored as the source of truth:
+### Prohibition on Storing Derived Values
+To prevent data synchronization drift, the database **never** stores derived metrics:
+- `gst_amount`, `landed_cost_per_kg`, and `remaining_kg` are calculated on read via `app/calc.py`.
+- `yield_pct`, `heat_profit`, and `is_provisional` are derived on request from inputs, variable costs, and linked sales.
+- `monthly_profit`, `break_even_heats`, and `gst_summary` are derived aggregates across monthly cohorts.
 
-| Derived value | Rule | Computed by |
-|---|---|---|
-| `gst_amount` | R2 | `calc.gst_amount` |
-| `landed_cost_per_kg` | R3 | `calc.landed_cost_per_kg` |
-| `remaining_kg` | lot weight − sum of heat inputs | `calc.remaining_kg` / repository aggregate |
-| `total_input_kg` | sum of a heat's input lines | `calc.total_input_kg` |
-| `variable_costs` | oil + power + labour + other | `calc.heat_variable_costs` |
-| `yield_pct` | R5 | `calc.yield_pct` |
-| `net_outbound_transport` | R6 | `calc.net_outbound_transport` |
-| `heat_profit` | R7 | `calc.heat_profit` |
-| provisional flag | R8 | `calc.is_provisional` |
-| monthly provisional flag | R8/R10 | `calc.monthly_is_provisional` |
-| monthly profit | R10 | `calc.monthly_profit` |
-| break-even heats | R11 | `calc.break_even_heats` |
-| GST estimate | R12 | `calc.gst_summary` |
+---
 
-Storing derived money would create a second source of truth that drifts after every edit. The only stored aggregate is the heat-to-lot kg allocation, because that is an input, not a result.
+## 4. Frontend Architecture
 
-## 4. Key flows
+The frontend is a single-page application built with React 18 and Vite:
+- **Centralized API Client (`src/api/client.ts`)**: Components do not call browser `fetch` directly. All API communication flows through typed helper methods that manage base URLs, session credentials (`credentials: 'include'`), and structured error extraction.
+- **UI & Layout**: Styled with Tailwind CSS, using accessible primitives inspired by shadcn/ui. Financial data is visualized with Recharts.
+- **Currency & Number Formatting**: All monetary values are rendered through `src/lib/format.ts` using `Intl.NumberFormat('en-IN')` with Indian numbering grouping (lakhs and crores). Hand-formatting numbers in components is strictly forbidden.
+- **Theme & Responsiveness**: Supports light and dark modes with system preference fallback, fully responsive from mobile phone screens (375 px) to desktop views.
 
-### Purchases API
+---
 
-`GET/POST /api/purchases` and `GET/PUT/DELETE /api/purchases/{id}`. The service stores only the lot columns; the response adds `gst_amount`, `landed_cost_per_kg`, `consumed_kg` and `remaining_kg`, all computed through `calc.py`. `SUPPLIER_DELIVERS` normalises freight to zero, `WE_PAY` requires a positive freight cost, and a lot cannot be reduced below the kilograms already consumed by heats or deleted while a heat references it.
+## 5. Security & Isolation Boundaries
 
-### Heats API
+1. **Authentication & Session Security**:
+   - Authentication relies on HTTP-only, `SameSite=Lax` session cookies. In production, cookies are flagged `Secure`.
+   - Passwords are encrypted using Python's `hashlib.scrypt` with a minimum salt length and cost parameters hardened for production security.
+2. **File Storage & Path Traversal Prevention**:
+   - Spectro reports are stored behind the `Storage` abstraction.
+   - Files are saved on disk using randomly generated alphanumeric keys (UUIDs). User-supplied file names are sanitized and stored solely as database metadata.
+   - Reports are retrieved strictly through authenticated streaming endpoints (`GET /api/heats/{heat_id}/reports/{id}/download`); no public static file URLs exist.
+3. **Telemetry & Privacy Allowlist**:
+   - OpenTelemetry instrumentation in `app/telemetry.py` enforces a deny-by-default allowlist.
+   - Span attributes, metric labels, and JSON log attributes permit only HTTP routes, methods, status classes, response durations, and internal IDs.
+   - Customer names, supplier names, prices, rates, file contents, and passwords are unconditionally scrubbed before reaching OpenTelemetry exporters.
 
-`GET/POST /api/heats` and `GET/PUT/DELETE /api/heats/{id}`. The payload references lots by `lot_id`; repeated lines for one lot are summed before the stock check. A heat may have zero inputs, in which case yield and profit are `null` and the screen shows `n/a`. `GET /api/heats` accepts `from_date`, `to_date`, `alloy`, `report_result` and `heat_no`; supplied filters combine, `heat_no` is a case-insensitive substring search across all dates, and `report_result` matches heats with at least one report of that result. `GET /api/heats/{id}` returns the inputs, outputs, costs, linked sales, yield and profit shown on the detail screen.
+---
 
-### Sales API
+## 6. Observability & Alerting Architecture
 
-`GET/POST /api/sales` and `GET/PUT/DELETE /api/sales/{id}`. `ADC12`/`LM6` sales are bound to a heat of the same alloy and cannot push that heat's total alloy kg sold past `output_kg`. `DROSS`/`IRON_SCRAP` may be unlinked or linked for revenue. `WE_PAY_ABSORB` and `WE_PAY_BILL` require a positive `transport_cost`; `WE_PAY_BILL` also requires `transport_billed <= transport_cost`, `WE_PAY_ABSORB` resets the billed amount, and `CUSTOMER_ARRANGES` forces both transport amounts to zero. The positive-cost and billed-at-or-below-cost rules come from issue #6's acceptance criteria; the frozen product spec's R6 only defines net freight and does not itself require a positive cost or cap billing at cost. GST mode changes the sale's own `gst_amount`, never revenue or profit. A heat response exposes `sold_alloy_kg`, `revenue`, `net_outbound_transport`, linked sales and `is_provisional`, so the UI does not infer state. Deleting a heat with linked sales is refused with **409**, and neither the heat nor its inputs nor its sales change. A heat's `output_kg` may not be reduced below the alloy kg already sold.
+When the `--profile observability` flag is enabled in Docker Compose:
+1. **Tracing & Metrics**:
+   - The FastAPI backend exports OTLP telemetry to `metalops-otel-collector:4318`.
+   - Traces are forwarded to Grafana Tempo; Prometheus scrapes metrics from the Collector on port 8889; logs are ingested into Grafana Loki.
+2. **Alert Pipeline**:
+   - Prometheus evaluates the 5-minute ratio alert `HeatReportHigh5xxRate` (`observability/prometheus/alert_rules.yml`).
+   - Firing alerts are sent to Alertmanager (`metalops-alertmanager:9093`), which dispatches to `metalops-alert-adapter:9097`.
+   - The adapter queries Loki internally to extract up to 5 matching trace IDs and posts an enriched JSON payload to `ALERT_WEBHOOK_URL`.
+3. **Host Isolation**:
+   - Only Grafana publishes a host port (`127.0.0.1:3001`). Prometheus, Loki, Tempo, Alertmanager, and the Collector remain internal to the Docker Compose network `metalops_network`.
 
-### Provisional labelling
+---
 
-`calc.is_provisional` compares the sold alloy kg to a heat's output. While short, a heat is provisional and the heat list/detail shows `provisional` next to its profit. `calc.monthly_is_provisional` propagates that state to any month whose included heats contain even one provisional heat, for the dashboard to use later (issue #9).
-
-### Create a heat (R4)
-
-1. Router validates the payload: alloy, unique `heat_no`, output > 0, every weight and money value at most 2 decimal places, and every supplied input line `kg > 0`. The `inputs` list itself may be empty.
-2. Service starts one write transaction. On SQLite it issues `BEGIN IMMEDIATE`; on PostgreSQL it locks the referenced lot rows with `FOR UPDATE`.
-3. The repository sums the requested kilograms per lot and aggregates existing heat inputs. A lot's available kg is its weight minus consumption by other heats.
-4. If `requested kg > available kg`, or output exceeds total input when inputs exist, raise a domain error → **422**, and nothing is written.
-5. Insert the heat and its inputs, commit.
-6. The response includes computed total input, yield, scrap cost, variable costs and profit from `calc.py`.
-
-An edit excludes the heat's own existing inputs from the availability calculation, then replaces lines in the same transaction. A delete removes the input rows and releases their kilograms back to the lots. Until sales arrive in #6, heat profit has no revenue component and a heat with inputs shows a cost-only (normally negative) profit.
-
-### Upload a spectro report (R13)
-
-1. Router streams the upload with a size cap of 10 MB.
-2. Service checks the first bytes equal `%PDF`, not the file extension.
-3. `Storage.save()` generates a random key and writes the bytes to the volume.
-4. On success, insert the report row; on failure, delete any partial file and return a clear error.
-5. Download resolves `file_key` from the database and streams it through an authenticated route. There is no public URL.
-
-### Dashboard month
-
-1. Repository fetches heats, linked sales, unlinked dross/iron sales and expenses for `YYYY-MM`.
-2. Service passes plain values into `calc.monthly_profit`, `calc.break_even_heats` and `calc.gst_summary`.
-3. Router returns one payload for all KPI cards and charts, so the screen makes one request.
-
-## 5. Frontend
-
-| Concern | Decision |
-|---|---|
-| Build | Vite, React 18, TypeScript strict |
-| Data | All HTTP through `src/api/client.ts`; no component calls `fetch` directly |
-| UI | Tailwind CSS and shadcn/ui; charts with Recharts; icons with lucide |
-| Money | One shared formatter using `Intl.NumberFormat('en-IN')`; components never hand-format |
-| State | Server state per screen; no global store until a second consumer appears |
-| Errors | Every screen has loading, empty and error states |
-| Theme | Light and dark, stored preference, respects the OS default on first visit |
-
-## 6. Security and privacy
-
-- Session cookie auth; every `/api` route except `/api/health` and login requires a session (issue #11).
-- Passwords hashed; the owner account is created from environment variables at startup.
-- Downloads are authenticated; file keys are random and never derived from user input.
-- Telemetry is off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set. When it is on, a deny-by-default allow-list filters span attributes, metric labels and log fields before export: route template, method, status class, duration, trace/span IDs, heat/report IDs and byte sizes only. SQL text, bodies, headers, cookies, query strings, raw paths, exception messages, filenames and file contents never leave the process. Batch exporters isolate Collector outages from request latency (issue #16 Part 1).
-- Secrets only from environment variables; `.env` is git-ignored and `.env.example` lists names without values.
-
-## 7. Deployment topology (planned)
+## 7. Deployment Architecture & Rollback Strategy
 
 ```mermaid
-flowchart TB
-    subgraph Dev["dev environment"]
-        DV[VM · Docker Compose<br/>app + Postgres + volume]
+flowchart LR
+    subgraph GitHub["GitHub Repository"]
+        MAIN["main branch"]
+        CI["CI Workflow (ci.yml)"]
+        CD["CD Workflow (cd.yml)"]
+        REGISTRY["GitHub Container Registry (GHCR)"]
     end
-    subgraph Prod["production environment"]
-        PV[VM · Docker Compose<br/>app + Postgres + volume]
+
+    subgraph Host["Production Single-VM Host"]
+        PROD_COMPOSE["Docker Compose (compose.prod.yaml)"]
+        VOL_DB[("metalops_postgres_data")]
+        VOL_UPLOADS[("metalops_uploads")]
+        APP["Containers: Backend, Frontend, Postgres"]
     end
-    GH[GitHub main] -->|merge: build, push, auto-deploy| DV
-    GH -->|manual approval| PV
+
+    MAIN --> CI
+    CI -->|Passing ci check| CD
+    CD -->|Build & Tag SHA| REGISTRY
+    CD -->|Manual Review Approval| Host
+    REGISTRY -->|Pull immutable SHA image| PROD_COMPOSE
+    PROD_COMPOSE --> APP
+    APP --- VOL_DB
+    APP --- VOL_UPLOADS
 ```
 
-One small VM per environment with Docker Compose is chosen over a PaaS because uploaded PDFs must survive redeploys, which needs a persistent disk. The previous image tag is retained for rollback (issue #15).
+- **Production Topology**: Single VM running Docker Compose (`compose.prod.yaml`) with named volumes ensuring database records and uploaded PDF reports persist across updates and restarts.
+- **Immutable Container Tags**: All production images are tagged with git commit SHAs (e.g. `ghcr.io/kushagrapan/metal-ops-backend:<sha>`).
+- **Deterministic Rollback**: If an issue occurs in production, rollback is executed by running `IMAGE_TAG=<previous_sha> docker compose -f compose.prod.yaml up -d`, returning to the known-good revision without data loss.
 
-## 8. Decisions and their reasons
+---
 
-| Decision | Why |
-|---|---|
-| `calc.py` pure functions | The money rules are the product; they must be testable without a database |
-| Derived values computed, not stored | Avoids drift between stored totals and their inputs |
-| SQLite in dev, Postgres in Docker | Zero-setup local loop without pretending it is production |
-| Storage interface, local volume first | Uploads survive restarts; a cloud bucket can be added without touching routers |
-| One workspace, one role | Stated v1 scope; multi-tenancy would touch every table |
-| Estimate, not filing, for GST | The system is not a tax authority and must not imply compliance |
-| OpenTelemetry + Collector | Vendor-neutral; Grafana reads metrics, logs and traces with one trace ID |
-| Break-even under provisional heats | Break-even (R11) requires positive average heat profit. When heats are provisional, profit is unfinalized and often negative, so `calc.break_even_heats` suppresses misleading figures by returning `None` (`n/a`) until the workshop breaks even or finalizes sales |
+## 8. Architectural Decisions & Trade-Offs
 
-## 9. Deliberately out of scope
-
-Working-capital planning, multi-year projections, multiple workspaces or roles, PDF text parsing, a mobile app, GST return filing, inventory valuation beyond remaining kg per lot.
-
-## 10. Status
-
-| Component | Issue | State |
-|---|---|---|
-| Repository, docs, agent process | #19 (partly wave 0) | **Done** |
-| Backend/frontend scaffold and commands | #1 | Done |
-| Models, migration, seed | #2 | Done |
-| `calc.py` and unit tests | #3 | Done |
-| Purchases API and screen | #4 | Done |
-| Heats API and screen | #5 | In review |
-| Sales API and screen | #6 | Done |
-| Heat history and detail | #7 | In review |
-| Spectro reports and storage | #8 | Done |
-| Expenses and dashboard figures | #9 | In review |
-| Design system and charts | #10 | Not started |
-| Authentication | #11 | Not started |
-| Integration suite | #12 | Not started |
-| Compose stack | #13 | Not started |
-| CI and CD | #14, #15 | Not started |
-| Observability, alert, responder | #16, #17, #18 | Not started |
+| Decision | Selected Approach | Considered Alternative | Reason for Selection |
+|---|---|---|---|
+| **Calculation Engine** | Pure Python functions with `Decimal` | Stored database procedures or ORM property hooks | Eliminates test dependencies on running databases; prevents calculation drift across concurrent reads. |
+| **Currency Representation** | Python `Decimal` / SQL `Numeric(12,2)` | Native IEEE 754 `float` | Binary floating-point arithmetic introduces rounding inaccuracies that distort tax and financial reporting. |
+| **Storage Architecture** | Local volume with abstract interface | Direct AWS S3 / Cloud Storage integration | Single-workshop v1 scope keeps deployment footprint low; interface enables cloud migration without modifying routers. |
+| **Concurrency Protection** | Database row locking (`FOR UPDATE`) | Optimistic concurrency via version counters | Prevents race conditions during simultaneous heat creations competing for purchase lot stock. |
+| **Local Development Database** | SQLite (in-memory / file) | Mandatory local PostgreSQL container | Enables instant developer feedback and fast unit testing without Docker prerequisites. |
+| **Single Role Auth** | Session cookies with owner bootstrap | Multi-tenant RBAC / OAuth2 | Matches the verified workshop operating model (shared workshop terminals for owner and furnace staff). |

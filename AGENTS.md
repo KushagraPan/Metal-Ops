@@ -6,31 +6,47 @@ MetalOps Lite tracks scrap purchases, furnace heats, sales and spectro reports f
 
 1. [`product-spec.md`](product-spec.md) — the frozen specification. Business rules R1–R13 and the worked example are the source of truth.
 2. [`_docs/architecture.md`](_docs/architecture.md) — layers, data model, key flows, deployment topology.
-3. [`_docs/backlog.md`](_docs/backlog.md) — issues #1–#20. The GitHub issue is authoritative; this file mirrors it.
+3. [`_docs/backlog.md`](_docs/backlog.md) — issues #1–#22. The GitHub issue is authoritative; this file mirrors it.
 4. [`_docs/agent-team.md`](_docs/agent-team.md) — roles, hand-offs and the evidence each role leaves.
-5. [`_docs/process.md`](_docs/process.md) — how work is organized, including the QA verdict loop.
-6. [`_docs/oncall-agent.md`](_docs/oncall-agent.md) — the alert-to-fix loop and its guardrails.
+5. [`_docs/ai-tools-usage.md`](_docs/ai-tools-usage.md) — record of AI models used, tasks assisted, and verification methodology.
+6. [`_docs/process.md`](_docs/process.md) — how work is organized, including the QA verdict loop.
+7. [`_docs/team/qa-engineer.md`](_docs/team/qa-engineer.md) — QA role contract and verification procedure.
+8. [`_docs/oncall-agent.md`](_docs/oncall-agent.md) — on-call responder contract, guardrails, and drill evaluation records.
 
 ## Repository layout
 
 ```
 .
 ├── AGENTS.md                  this file
-├── README.md                  problem, functionality, expected behaviour
+├── README.md                  problem, functionality, expected behaviour, setup, testing, deployment
 ├── product-spec.md            frozen specification (do not edit)
 ├── .gitignore
 ├── .env.example               environment variable names (issue #1)
-├── Makefile                   dev / test / seed (issue #1)
+├── Makefile                   dev / test / seed / stack / rollback targets
+├── compose.yaml               production/dev Docker Compose definition
+├── compose.test.yaml          compose overlay publishing test port
+├── compose.observability.yaml compose overlay for OpenTelemetry/Prometheus/Loki/Tempo/Grafana
+├── compose.prod.yaml          single-VM production deployment definition
 ├── _docs/
-│   ├── backlog.md             issues #1–#19
-│   ├── architecture.md        design and decisions
-│   ├── agent-team.md          roles and hand-offs
+│   ├── backlog.md             issues #1–#22
+│   ├── architecture.md        design, data model, layers, and decisions
+│   ├── agent-team.md          roles, lifecycle, and hand-off contracts
+│   ├── ai-tools-usage.md      record of AI model usage and verification guardrails
 │   ├── process.md             process and QA verdict loop
 │   ├── team/
-│   │   └── qa-engineer.md     QA role contract
-│   └── oncall-agent.md        responder contract
+│   │   ├── qa-engineer.md     QA role contract
+│   │   └── ui-designer.md     UI designer contract
+│   ├── incident-response.md   live alert-to-resolution verification runbook
+│   └── oncall-agent.md        responder contract and remediation drill evaluation
 ├── scripts/
-│   └── create_issues.py       publishes _docs/backlog.md to GitHub
+│   ├── create_issues.py       publishes _docs/backlog.md to GitHub
+│   ├── check_pins.py          verifies exact dependency pins in requirements.txt and package.json
+│   ├── dev.py                 starts local backend and frontend
+│   ├── reset_db.py            resets local development database
+│   ├── test_db.py             starts/stops test postgres container and checks readiness
+│   ├── run_stack_test.py      runs integration tests against running Compose stack
+│   ├── stack_persistence_test.py verifies report persistence across container restarts
+│   └── rollback_test.py       verifies deployment rollback mechanics
 ├── app/                       FastAPI backend (issue #1)
 │   ├── calc.py                all money and weight maths, pure functions (issue #3)
 │   ├── routers/               HTTP shape only
@@ -38,21 +54,23 @@ MetalOps Lite tracks scrap purchases, furnace heats, sales and spectro reports f
 │   ├── repositories/          queries and persistence
 │   ├── models/                SQLAlchemy 2 mappings
 │   ├── schemas/               Pydantic v2
-│   └── storage/               Storage interface and LocalStorage
+│   ├── storage/               Storage interface and LocalStorage
+│   └── telemetry.py           OpenTelemetry instrumentation and privacy allowlist
 ├── migrations/                Alembic (issue #2)
-├── frontend/                  React + TypeScript (issue #1)
+├── frontend/                  React + TypeScript + Vite (issue #1)
+├── observability/             Prometheus alert rules, Alertmanager, and alert adapter
 └── tests/
-    ├── unit/                  calculator and attribute allow-list
-    └── integration/           real database, marked `integration`
+    ├── unit/                  calculator, domain logic, and telemetry allow-list tests
+    └── integration/           real database tests, marked `integration`
 ```
 
 ## Roles
 
 - **Spec agent (Claude, in chat):** drafts the spec and the issues. Does not write application code.
-- **Implementer (DeepSeek V4 in OpenCode):** implements one issue at a time.
+- **Implementer (DeepSeek V4 / Gemini in harness):** implements one issue at a time test-first.
 - **QA (verification agent):** checks a finished issue against its acceptance criteria and posts a PASS/FAIL verdict. Does not fix, merge or close. Follows [`_docs/team/qa-engineer.md`](_docs/team/qa-engineer.md).
 - **Reviewer (human):** reviews every issue before the next one starts. The only role that merges.
-- **Responder (headless agent, issue #18):** wakes on an alert, investigates, and opens a fix pull request. Never merges and has no production access.
+- **Responder (headless agent, issue #18):** wakes on an alert, investigates, and opens a candidate fix pull request. Never merges and has no production access. (Status: Open / Unaccepted).
 
 Details and hand-off contracts: [`_docs/agent-team.md`](_docs/agent-team.md).
 
@@ -80,12 +98,17 @@ The chat is not the record. The issue, its commits and its summary comment are.
 
 ## Commands
 
-| Command | Purpose | Available after |
+| Command | Purpose | Available |
 |---|---|---|
-| `make dev` | API and frontend locally (SQLite) | #1 |
-| `make test` | All unit and integration tests | #1, #12 |
-| `make seed` | Fictional demo data | #2 |
-| `docker compose up` | Full system with PostgreSQL | #13 |
+| `make dev` | API on `:8000` and frontend on `:5173` locally (SQLite) | now |
+| `make test` | All unit, integration, Vitest, and TypeScript checks | now |
+| `make test-unit` | Pytest unit test suite only | now |
+| `make test-integration`| Pytest integration tests against PostgreSQL | now |
+| `make seed` | Fictional demo data | now |
+| `make reset-db` | Delete local dev database, migrate and reseed | now |
+| `docker compose up` | Full system with PostgreSQL | now |
+| `make stack-test` | Integration tests against running Compose stack | now |
+| `make rollback-test` | Automated deployment and rollback verification | now |
 
 ## Safety rules
 

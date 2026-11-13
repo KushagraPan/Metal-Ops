@@ -1,137 +1,122 @@
-# Agent Team
+# Agent Team & Governance
 
-How the work on MetalOps Lite is divided between humans and AI agents, and how artefacts move between them. `AGENTS.md` holds the short rules; this document holds the full process.
+This document defines the roles, responsibilities, permissions, execution boundaries, and hand-off contracts governing collaboration between AI agents and human reviewers across the **MetalOps Lite** lifecycle.
 
-## Roster
+---
 
-| Role | Actor | Authority | Writes |
-|---|---|---|---|
-| **Spec agent** | Claude, in chat | Owns the specification and the issue text. May change them between issues, never during one. | `product-spec.md`, `_docs/backlog.md`, issue bodies |
-| **Implementer** | DeepSeek V4 in OpenCode | Implements exactly one issue at a time, test-first. Cannot widen scope, cannot change the spec, cannot merge. | `app/`, `frontend/`, tests, migrations, the files the issue names |
-| **QA** | Verification agent, separate from the implementer | Checks a finished issue against its acceptance criteria and posts a PASS/FAIL verdict. Cannot fix, merge or close. | Verdict comment on the issue |
-| **Reviewer** | Human | Approves or rejects each issue. Merges pull requests. The only role that can accept work. | Review comments, merge commits |
-| **Responder** | Headless agent, issue #18 | Wakes on an alert, investigates, opens a fix pull request. No production access, never merges. | A branch, a pull request, `_docs/oncall-agent.md` |
-| **CI** | GitHub Actions | Not an agent, a gate. Runs `make test` on every pull request and blocks merge on failure. | Checks, build logs |
+## 1. Roster of Roles
 
-The course peer reviewer is outside this team: they score the submitted repository against the criteria in the project brief and cannot be influenced by the team.
+| Role | Primary Actor | Execution Environment | Permissions & Authority | Prohibited Actions |
+|---|---|---|---|---|
+| **Spec Agent** | Claude 3.7 / 3.5 Sonnet | Chat Session | Owns the specification (`product-spec.md`) and issue descriptions (`_docs/backlog.md`). | Must never write application code, create commits, or modify specs during an active implementation. |
+| **Implementer** | DeepSeek V4 / Gemini Pro | OpenCode / Antigravity Harness | Implements one issue at a time test-first. Authors tests, domain logic, migrations, and frontend code. | Must not modify `product-spec.md`, widen scope beyond acceptance criteria, push directly to `main`, or self-merge. |
+| **QA Engineer** | Verification Agent | Isolated Read-Only Session | Exercises criteria against running code, runs tests, and posts independent PASS/FAIL verdicts. | Must not modify application code, merge pull requests, or close issues. |
+| **On-Call Responder** | Automated Headless Worker | Docker / Webhook Boundary | Wakes on 5xx alerts, correlates Loki/Tempo traces, evaluates fixes in isolated worktrees, opens candidate PRs. | Strictly forbidden from accessing production secrets (`PRODUCTION_*`, `DEPLOY_*`), running shell commands, or self-merging. |
+| **Human Reviewer** | Workshop Owner / Lead Engineer | GitHub Web UI / Terminal | Reviews diffs, audits QA evidence, validates deployments, and merges pull requests into `main`. | Sole role with merge authority. |
 
-## The unit of work
+---
 
-One GitHub issue. The issue is authoritative; `_docs/backlog.md` mirrors it. Every issue carries:
+## 2. Issue Lifecycle & Hand-off Pipeline
 
-- a priority (`P0` or `P1`) and dependency list;
-- acceptance criteria written as observable behaviour;
-- the tests that must exist before the issue is done.
-
-An issue with no acceptance criteria is not ready to start. If the implementer finds one, it comments on the issue and stops.
-
-## Lifecycle of one issue
+Every unit of work corresponds to exactly one GitHub issue with clear, observable acceptance criteria. Work progresses through a strict sequential pipeline:
 
 ```mermaid
 sequenceDiagram
-    participant S as Spec agent
-    participant T as GitHub issue
-    participant I as Implementer
-    participant Q as QA
-    participant CI as CI
-    participant R as Human reviewer
+    participant S as Spec Agent
+    participant GH as GitHub Issue / PR
+    participant I as Implementer Agent
+    participant Q as QA Engineer
+    participant CI as GitHub Actions CI
+    participant R as Human Reviewer
 
-    S->>T: writes issue (criteria + tests)
-    I->>T: reads issue, claims it
-    I->>I: writes failing tests (red)
-    I->>I: implements until green
-    I->>I: runs make test locally
-    I->>T: commits with "Refs #N", comments summary
-    I->>Q: stops and hands over
-    Q->>T: posts PASS/FAIL verdict
-    alt FAIL
-        Q->>I: verdict as input
-    else PASS
-        Q->>R: ready for review
-        R->>CI: opens/updates pull request
-        CI-->>R: make test result
-        alt criteria met and green
-            R->>T: approves, merges, closes
-            R->>S: next issue
-        else gaps found
-            R->>T: review comments
-            R->>I: reopen scope on the same issue
+    S->>GH: Drafts issue with observable acceptance criteria & tests
+    I->>GH: Claims issue, creates dedicated branch
+    I->>I: Writes failing tests (RED)
+    I->>I: Implements minimal solution (GREEN)
+    I->>I: Executes local test verification (make test)
+    I->>GH: Commits with "Refs #N", posts implementation summary
+    I->>Q: Hands over to QA
+    Q->>Q: Audits checklist, runs test suite, checks invariants
+    Q->>GH: Posts independent PASS / FAIL verdict
+    alt Verdict is FAIL
+        Q->>I: Returns to Implementer with failure output
+    else Verdict is PASS
+        Q->>R: Releases to Human Reviewer
+        R->>GH: Opens Pull Request against main
+        GH->>CI: Executes CI test suite, linters, Trivy scan
+        CI-->>R: Reports aggregate ci check result
+        alt CI Green & Human Approves
+            R->>GH: Merges PR to main, closes issue
+        else Changes Requested
+            R->>I: Submits review comments on same issue
         end
     end
 ```
 
-### 1. Specify
+---
 
-The spec agent writes the issue from `product-spec.md`, with rules referenced by number (for example "R4 stock guard"). It does not write application code.
+## 3. Detailed Role Contracts & Execution Boundaries
 
-### 2. Implement
+### A. Spec Agent
+- **Responsibilities**: Translate workshop business requirements into formal, numbered rules (R1–R13) and observable acceptance criteria.
+- **Inputs**: Client interview notes, workshop accounting spreadsheets, and feedback.
+- **Outputs**: `product-spec.md`, `_docs/backlog.md`, and GitHub issue definitions.
+- **Tools**: Markdown editor.
+- **Handoff Gate**: An issue is ready only when acceptance criteria can be verified through explicit, automated or behavioural tests.
 
-The implementer reads the whole issue, including acceptance criteria, then:
+### B. Implementer
+- **Responsibilities**:
+  1. Author failing unit/integration tests before writing domain code.
+  2. Implement the smallest code change that satisfies the test suite.
+  3. Keep all financial calculations inside `app/calc.py` as pure functions of `Decimal`.
+  4. Ensure zero floating-point math in money or weight columns.
+- **Inputs**: Authoritative GitHub issue criteria.
+- **Outputs**: Scoped Git commits on a dedicated issue branch, ending with `Refs #N`.
+- **Handoff Gate**: Local verification (`make test`) must pass completely before handing over to QA.
 
-1. writes the tests named in the issue and watches them fail;
-2. writes the smallest implementation that makes them pass;
-3. runs `make test` — unit and integration together;
-4. commits in small steps, each message ending with `Refs #N`;
-5. comments on the issue: what changed, how it was tested, anything surprising;
-6. stops and hands the issue to QA. It does not pick up the next issue.
+### C. QA Engineer (Verification Agent)
+- **Responsibilities**:
+  1. Extract acceptance criteria directly from the issue checklist before inspecting diffs.
+  2. Independently execute `make test` and record command outputs.
+  3. Verify database idempotency (`make seed` executed twice returns identical entity counts).
+  4. Audit for scope creep, ensuring zero edits to `product-spec.md` and zero committed credentials.
+- **Inputs**: Implementer's summary comment and commit SHA.
+- **Outputs**: Formatted QA verdict comment (`QA: PASS` or `QA: FAIL`) citing itemized evidence.
+- **Contract**: Defined in detail in [`_docs/team/qa-engineer.md`](team/qa-engineer.md).
 
-### 3. Verify
+### D. On-Call Responder (Issue #18)
+- **Responsibilities**:
+  1. Wake on HTTP webhook alert payloads delivered by the Prometheus/Alertmanager pipeline.
+  2. Deduplicate alerts via atomic SQLite transactions (`claim_alert`) in WAL mode.
+  3. Correlate Loki logs and Tempo trace IDs without logging sensitive customer or rate data.
+  4. Execute all diagnostic tests and candidate patch authoring in an isolated Git worktree (`metalops-oncall-worktrees/wt-...`).
+  5. Open a candidate PR using an isolated, temporary GitHub CLI directory (`GH_CONFIG_DIR`) and `ONCALL_GITHUB_TOKEN`.
+- **Restrictions & Security Boundaries**:
+  - **No Production Secrets**: Subprocess execution strictly purges `DEPLOY_SSH_KEY`, `PROD_DATABASE_URL`, and all environment variables prefixed with `PRODUCTION_*` or `PROD_*`.
+  - **No Shell Execution**: Subprocess calls require `shell=False`; shell wrappers (`sh`, `bash`, `cmd`, `powershell`) and chaining metacharacters (`;`, `&&`, `|`) are blocked by `GuardrailEnforcer`.
+  - **No Merge Authority**: Branch protection and required status checks prevent automated merging. PRs must remain `OPEN` for human review.
+- **Current Operational Status**:
+  > [!WARNING]
+  > **Issue #18 Status: OPEN / NOT ACCEPTED**
+  > While deterministic guardrails, worktree isolation, and token isolation are verified, autonomous defect diagnosis and patch authoring have **NOT** met acceptance criteria. In controlled drills using local models (`qwen2.5-coder:1.5b`), the model failed to autonomously localize the defect or generate an automated reproduction test. All candidate PRs (#28, #30) remain unmerged and under human review. Full evaluation records are maintained in [`_docs/oncall-agent.md`](oncall-agent.md).
 
-The QA agent checks the finished issue against its acceptance criteria and posts a PASS/FAIL verdict. A FAIL returns the issue to the implementer with the verdict as input; a PASS releases it to the human reviewer. QA changes no code.
+### E. Human Reviewer
+- **Responsibilities**:
+  - Validate that the pull request satisfies the business specification without unintended regressions.
+  - Audit CI security reports (Gitleaks, Trivy container scans, pip-audit, npm audit).
+  - Perform the final merge into `main` and trigger production CD deployment.
+- **Authority**: Holds the sole deployment and merge credentials.
 
-### 4. Review
+---
 
-The human reads the diff against the acceptance criteria, checks for unrelated changes, and either merges or sends the issue back. A merge is the only signal that the next issue may start.
+## 4. Hand-off Artifact & Evidence Matrix
 
-### 5. Respond
-
-On an alert, the responder follows `_docs/oncall-agent.md`: read the logs and traces for the failing trace ID, reproduce, write a failing test, fix, open a pull request. It stops there.
-
-## Hand-off contract
-
-Each hand-off has an artefact and a gate. If the artefact is missing, the next role does not proceed.
-
-| From → To | Artefact | Gate |
+| Transition | Required Artifact | Verification Gate |
 |---|---|---|
-| Spec → Implementer | Issue with criteria and named tests | Criteria are observable; dependencies merged |
-| Implementer → QA | Issue comment and commits | States what changed, how it was tested, and any risk; tests green |
-| QA → Reviewer | PASS/FAIL comment | Every criterion has a verdict; each FAIL states expected vs actual |
-| Implementer → CI | Branch and pull request | `make test` green locally |
-| CI → Reviewer | Check result | All tests pass; no skipped tests hiding failures |
-| Reviewer → Implementer | Merge or review comments | Criteria met and no unrelated changes |
-| Alert → Responder | Alert payload with service, window and trace IDs | Threshold from issue #17 crossed |
-| Responder → Reviewer | Pull request with a new failing-then-passing test | CI green; no production write access used |
-
-## Boundaries
-
-- The implementer never edits `product-spec.md`. A suspected spec error is an issue comment, not an edit.
-- No role merges its own work. The responder has no production access at all.
-- No role adds a library, a screen or a file that the issue does not name.
-- No role commits real business data, credentials or customer names.
-- Telemetry is written by the application, but every role is bound by the same allow-list: IDs, durations and sizes only — never names, rates, amounts or file contents.
-
-## Evidence the team worked
-
-The tracker is the record, not the chat. For each closed issue the repository holds:
-
-1. the issue with its acceptance criteria;
-2. commits referencing it (`Refs #N`);
-3. the implementer's summary comment;
-4. the QA verdict comment;
-5. the review outcome.
-
-`git log --grep 'Refs #'` must show one or more commits per closed issue. An issue closed without them is treated as unverified.
-
-## Escalation
-
-| Situation | Action |
-|---|---|
-| Spec is ambiguous or wrong | Comment on the issue with the exact rule and stop |
-| Acceptance criterion is untestable | Propose a measurable restatement on the issue; wait for the spec agent |
-| Test is flaky or a dependency is down | Comment with the failing output; do not weaken or skip the test |
-| Scope grows mid-issue | Split it into a new issue; do not absorb it |
-| Alert fires during an active issue | Responder handles it in its own pull request; the implementer does not switch tasks |
-
-## Current state
-
-Wave 0 and issues #1–#2 are complete and verified. The next action is issue #3, the calculation module.
+| **Spec → Implementer** | GitHub issue with acceptance criteria and test plan | Observable, testable criteria; dependencies merged into `main`. |
+| **Implementer → QA** | Scoped commits (`Refs #N`) + summary comment | `make test` green locally; zero diff in `product-spec.md`. |
+| **QA → Reviewer** | Independent QA verdict comment (`PASS`/`FAIL`) | Every criterion audited; exact test commands recorded. |
+| **Implementer → CI** | GitHub Pull Request | Triggers automated GitHub Actions matrix (`ci.yml`). |
+| **CI → Reviewer** | Green aggregate `ci` check status | Zero test failures, zero lint/type errors, zero HIGH/CRITICAL vulnerabilities. |
+| **Alert → Responder** | Sanitized alert JSON (`metric`, `service`, `trace_ids`) | Validated against allowlisted schema; claimed via atomic SQLite lock. |
+| **Responder → Reviewer** | OPEN Pull Request on `oncall/*` branch | Pre-fix reproduction test failure verified; post-fix pass verified; no production write access. |

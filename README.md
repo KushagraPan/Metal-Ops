@@ -1,319 +1,245 @@
 # MetalOps Lite
 
-Scrap purchasing, furnace heats, sales and spectro reports for a small aluminium recycling workshop. It computes yield and profit per heat, always **excluding GST**.
+Scrap purchasing, furnace heats, sales and spectro reports for a small aluminium recycling workshop. Computes yield, landed costs, and profit per heat, always **excluding GST**.
 
-**Status:** purchases, heats and sales APIs and screens (issues #4, #5 and #6). `make dev` runs the API and the frontend locally; `make seed` loads fictional demo data. Heat history and detail view follows.
+[![CI](https://github.com/KushagraPan/Metal-Ops/actions/workflows/ci.yml/badge.svg)](https://github.com/KushagraPan/Metal-Ops/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## The problem
+---
 
-A small workshop buys aluminium scrap, melts it in furnace batches called **heats**, and sells alloy ingots (ADC12 or LM6) plus byproducts (dross and iron scrap). Purchases, heats and costs currently live in spreadsheets, so:
+## 1. Problem & Purpose
 
-- the yield and profit of a past heat cannot be looked up;
-- a heat's spectro (chemical composition) report is not linked to the heat;
-- GST and freight are handled inconsistently, which distorts profit.
+Small aluminium recycling workshops buy scrap aluminium (extrusions, cast, taint/tabor), melt it in batch furnace operations called **heats**, and sell alloy ingots (ADC12 or LM6) alongside byproducts (dross and iron scrap).
 
-## What the system does
+When managed in ad-hoc spreadsheets:
+- Historical yield and profit per heat cannot be tracked reliably.
+- Chemical composition (spectro) PDF reports are separated from furnace heat records.
+- GST credits and transport freight costs are applied inconsistently, distorting actual profit margins.
 
-| Area | Functionality |
+**MetalOps Lite** centralizes workshop operations into a single operational system that tracks intake, furnace melts, sales, and quality reports while enforcing exact financial rules.
+
+---
+
+## 2. Key Features & Business Rules
+
+All financial calculations follow the formal rules **R1–R13** in [`product-spec.md`](product-spec.md):
+
+| Domain Area | Key Capabilities & Rules |
 |---|---|
-| Purchases | Purchase lots with supplier, kg, rate, GST mode and inbound transport. Derives GST amount, landed cost per kg and remaining kg. |
-| Heats | Furnace batches that consume kg from one or more lots, with alloy, output, dross, iron scrap and variable costs (oil, power, labour, other). |
-| Sales | Alloy, dross and iron-scrap sales with GST mode and three outbound transport modes. Alloy sales are linked to a heat. |
-| Reports | Any number of spectro-report PDFs per heat, uploaded, listed and downloaded by logged-in users only. |
-| Expenses | Monthly fixed costs by category. |
-| Analytics | Yield and profit per heat, provisional-profit labelling, monthly profit, break-even heats and a GST estimate. |
-| Settings | GST rate (default 18%) and planned yield (default 89%). |
+| **Scrap Purchases** | Inward scrap intake tracking weight (kg), rate (₹/kg), GST mode (`WITH` or `WITHOUT`), and transport freight (`SUPPLIER_DELIVERS` or `WE_PAY`). Automatically calculates ex-GST landed cost per kg (`R3`). |
+| **Furnace Heats** | Batch tracking recording consumed lots, duration, production output kg, dross kg, iron scrap kg, and variable run costs (oil, power, labour, other). Enforces stock availability guardrails (`R4`) preventing overconsumption. |
+| **Metal Sales** | Alloy ingot sales (ADC12 or LM6) bound to specific heats, plus byproduct sales (dross, iron scrap). Supports 3 freight arrangements (`CUSTOMER_ARRANGES`, `WE_PAY_ABSORB`, `WE_PAY_BILL`) and derives net outbound transport (`R6`). |
+| **Spectro Reports** | Upload, list, and download chemical analysis PDF reports linked to heats. Enforces magic-byte signature validation (`%PDF`), random UUID storage keys, and authenticated streaming downloads (`R13`). |
+| **Workshop Analytics** | Yield percentage (`R5`), profit per heat (`R7`), provisional profit labelling (`R8`), monthly fixed expenses allocation (`R10`), break-even heat targets (`R11`), and net GST liability estimation (`R12`). |
+| **Settings** | Configurable workshop settings: default GST rate (default 18%) and planned furnace yield target (default 89%). |
 
-Both the owner (reads the dashboard and reviews heats) and staff (enters purchases, heats and sales, uploads reports) use the same workspace. Version 1 has a single login role.
+### Core Financial Principles
+1. **Money is Always ex-GST (`R1`)**: GST collected or paid never affects profit calculations. Switching GST modes changes invoice tax balances, never operational margins.
+2. **Landed Cost (`R3`)**: Inbound freight paid by the workshop is capitalized directly into lot scrap cost: `(kg × rate + inbound transport) ÷ kg`.
+3. **Provisional Profit (`R8`)**: A heat's profit remains marked as `provisional` until all output alloy ingots are sold.
+4. **Zero Floating-Point Math**: All calculations strictly use Python `Decimal` and SQL `Numeric(12,2)`. Binary `float` is prohibited.
 
-## Expected behaviour
+---
 
-The full rules are **R1–R13** in [`product-spec.md`](product-spec.md). The ones that define correct output:
+## 3. Technology Stack
 
-1. **Money is always ex-GST.** GST changes never change profit.
-2. **Landed cost per kg** = `(kg × rate + inbound freight when we pay) ÷ kg`.
-3. **Stock guard.** A heat may not consume more kg from a lot than that lot has remaining.
-4. **Yield** = `output kg ÷ total input kg × 100`.
-5. **Heat profit** = revenue − scrap cost − variable costs − net outbound transport. Billed transport is not revenue.
-6. **Provisional profit** is shown while sold alloy kg is below the heat's output.
-7. **Monthly profit** = heats in the month + unlinked dross and iron-scrap sales − that month's expenses.
-8. **Break-even heats** = `monthly expenses ÷ average heat profit`, or `n/a` when the average is zero or negative.
-9. **GST estimate** = GST collected on sales − GST credit on purchases. It is an estimate, never a filing figure.
+- **Backend**: FastAPI 0.162 · Python 3.11 · SQLAlchemy 2.0 · Alembic 1.14 · Pydantic v2 · pytest 9.0 · Uvicorn
+- **Frontend**: React 18 · TypeScript 5.6 · Vite 5.4 · Vitest 5.0 · Tailwind CSS 3.4 · shadcn/ui · Recharts 2.15 · Lucide Icons
+- **Database & Storage**: PostgreSQL 16 (production/Docker) · SQLite (local fast development) · Named Docker volume for PDFs
+- **Observability**: OpenTelemetry SDK 1.45 · OpenTelemetry Collector 0.165 · Prometheus 3.16 · Grafana Loki 3.6 · Grafana Tempo 2.9 · Grafana 11.4 · Alertmanager 0.28
+- **DevOps & CI/CD**: Docker Compose (v2) · Nginx 1.27 Alpine · GitHub Actions · Trivy Container Scanner · Gitleaks · Pip-Audit · NPM Audit
 
-### Worked example (fictional, used as the test fixture)
+---
 
-| Step | Numbers |
-|---|---|
-| Lot | 1,000 kg at ₹200.00/kg, GST `WITH`, transport `WE_PAY` ₹2,000.00 |
-| Landed cost | (200,000 + 2,000) ÷ 1,000 = **₹202.00/kg** |
-| Heat | Consumes 1,000 kg, outputs 890 kg ADC12 → **yield 89.0%**; dross 60 kg; iron scrap 5 kg |
-| Variable costs | oil 6,000 + power 3,000 + labour 2,000 = ₹11,000 |
-| Sales | ADC12 890 kg × 240.00 = 213,600; dross 60 kg × 90.00 = 5,400; iron scrap 5 kg × 32.00 = 160 → revenue **₹219,160** |
-| Transport | We pay ₹3,000 and absorb it |
-| **Profit** | 219,160 − 202,000 − 11,000 − 3,000 = **₹3,160.00** |
-| If we bill ₹2,000 of freight | Net outbound becomes 1,000 → **₹5,160.00** |
+## 4. Architecture Overview
 
-Switching any GST mode between `WITH` and `WITHOUT` leaves both profits unchanged.
+```mermaid
+flowchart LR
+    subgraph Frontend["Frontend SPA (:3000 / :5173)"]
+        UI["React 18 + Vite"] --> API_CLIENT["src/api/client.ts"]
+    end
 
-## Screens
+    subgraph Backend["Backend API (:8000)"]
+        API_CLIENT --> ROUTERS["app/routers/ (HTTP / Auth)"]
+        ROUTERS --> SERVICES["app/services/ (Use Cases)"]
+        SERVICES --> CALC["app/calc.py (Pure Maths)"]
+        SERVICES --> REPOS["app/repositories/ (SQLAlchemy 2)"]
+        SERVICES --> STORAGE["app/storage/ (PDF Storage)"]
+    end
 
-Login · Dashboard (month selector) · Purchases · Heats (filters and heat-number search) · Heat detail (inputs, outputs, costs, sales, yield, profit, reports) · Sales · Expenses · Settings.
+    subgraph Persistence["Persistence"]
+        REPOS --> DB[("PostgreSQL 16 / SQLite")]
+        STORAGE --> VOL[("Uploaded Reports (/app/storage)")]
+    end
+```
 
-The design brief (Tailwind, shadcn/ui, Recharts, slate + amber, `en-IN` digit grouping, light and dark themes, mobile-first entry) is in [`product-spec.md`](product-spec.md) section 6.
+For full details on layering, security boundaries, and data models, see [`_docs/architecture.md`](_docs/architecture.md).
 
-## Architecture at a glance
+---
 
-- **Backend:** FastAPI, SQLAlchemy 2, Alembic, pytest. Layers: routers → services → repositories. All money maths is in one pure, database-free module, `app/calc.py`, using `Decimal`.
-- **Frontend:** React, TypeScript, Vite, Vitest. Every backend call goes through `src/api/client.ts`.
-- **Data:** SQLite locally; PostgreSQL in Docker and production.
-- **Files:** behind a storage interface, stored under random keys; no public URLs.
-- **Observability:** OpenTelemetry for the "create heat, then upload report" journey; metrics, traces and logs share a trace ID and carry no names, rates, amounts or file contents.
+## 5. Prerequisites
 
-Full detail: [`_docs/architecture.md`](_docs/architecture.md).
+Before running MetalOps Lite locally, ensure you have:
+- **Python**: Version 3.11 or higher (`python --version`)
+- **Node.js**: Version 20 or 22 LTS (`node --version`, `npm --version`)
+- **GNU Make**: Version 3.81 or higher (`make --version`)
+- **Docker & Docker Compose**: Docker Engine 24+ with Compose v2 (required for containerized runs)
 
-## How to run
+---
 
-Prerequisites: Python 3.11+, Node 20+ and GNU Make. The first run creates `.venv` and installs frontend dependencies.
+## 6. Environment Setup & Configuration
 
-| Command | Purpose | Available |
-|---|---|---|
-| `make dev` | API on `:8000`, frontend on `:5173` | now |
-| `make test` | pytest, Vitest and the TypeScript check | now |
-| `make install` | Create the virtualenv and install dependencies | now |
-| `make migrate` | Apply Alembic migrations to `DATABASE_URL` (SQLite by default) | now |
-| `make seed` | Apply migrations, then load fictional demo data | now |
-| `make reset-db` | Delete the local SQLite dev database, migrate and reseed | now |
-| `docker compose up --build` | Full stack: PostgreSQL, FastAPI backend, Nginx SPA frontend | now |
-| `make stack-up` | Start Docker Compose stack with test port published | now |
-| `make stack-test` | Run integration test suite against running Compose stack | now |
-| `make stack-persistence` | Verify report file persistence across stack restart | now |
-| `make stack-down` | Stop and tear down the Compose stack | now |
+1. Clone the repository and enter the directory:
+   ```bash
+   git clone https://github.com/KushagraPan/Metal-Ops.git
+   cd Metal-Ops
+   ```
 
-## Running with Docker Compose
-
-To run the complete production-ready stack (PostgreSQL database, FastAPI backend, and Nginx reverse proxy serving the React single-page application):
-
-### Quick Start (Clone to Login)
-
-1. **Configure Environment:**
+2. Create your local environment file:
    ```bash
    cp .env.example .env
    ```
-   Inspect `.env` and set `OWNER_PASSWORD` (minimum 10 characters). For demo purposes:
-   - **Login Email:** `owner@workshop.local` (or value in `OWNER_EMAIL`)
-   - **Login Password:** `change_this_demo_password_10chars` (or value in `OWNER_PASSWORD`)
-   - `SEED_DEMO=1` automatically provisions demo purchase lots, furnace heats, sales, fixed expenses, and sample reports.
 
-2. **Start the Stack:**
-   ```bash
-   docker compose up --build
-   ```
-   Or run detached in the background:
-   ```bash
-   docker compose up -d --build
+3. Configure essential variables in `.env`:
+   ```ini
+   ENV=development
+   OWNER_EMAIL=owner@workshop.local
+   OWNER_PASSWORD=ValidPassword123!
+   FRONTEND_PORT=3000
+   GRAFANA_ADMIN_PASSWORD=local_grafana_password
    ```
 
-3. **Access the Application:**
-   Open your browser at [http://127.0.0.1:3000](http://127.0.0.1:3000) and log in with your credentials.
+---
 
-### Volume Persistence & Data Retention
+## 7. Local Development Instructions
 
-- `docker compose down`
-  Stops and removes the containers and network, but **preserves all database records and uploaded PDF reports** in named Docker volumes (`metalops_postgres_data` and `metalops_uploads`).
-- `docker compose down -v`
-  Stops the containers and **permanently deletes** the named volumes, resetting the database and uploaded storage to an empty state.
+The repository provides automated `Makefile` targets for setting up and running the application locally:
 
-### Testing the Running Stack
-
-You can verify the running Docker Compose stack and test report persistence using the dedicated Makefile targets:
-
+### 1. Install Dependencies
 ```bash
-# 1. Start the stack with PostgreSQL published on port 5434 for testing
-make stack-up
+make install
+```
+*Creates the Python virtual environment under `.venv`, installs all pinned requirements, and installs frontend npm packages.*
 
-# 2. Run the integration test suite against the running stack
-make stack-test
+### 2. Setup Database & Demo Seed Data
+```bash
+make seed
+```
+*Applies Alembic migrations (`make migrate`) to the local SQLite database and seeds fictional demo data: purchase lots, furnace heats, alloy sales, fixed expenses, and sample spectro reports.*
 
-# 3. Verify upload persistence across a full container restart (down then up)
-make stack-persistence
-
-# 4. Tear down the test stack
-make stack-down
+To reset the local database at any time:
+```bash
+make reset-db
 ```
 
-## Observability stack (Issue #16 Part 2)
-
-The optional `observability` profile adds an OpenTelemetry Collector, Prometheus,
-Loki, Tempo and Grafana. The application stack is unchanged when the profile is
-off. Only Grafana is published, on loopback (`127.0.0.1:3001` by default); the
-Collector, Prometheus, Loki and Tempo are reachable only on the Compose network.
-
-1. **Set the Grafana admin password** in `.env` (never commit it):
-   ```bash
-   GRAFANA_ADMIN_PASSWORD=choose_a_unique_local_password
-   GRAFANA_PORT=3001
-   ```
-2. **Start the application and observability services:**
-   ```bash
-   docker compose -f compose.yaml -f compose.observability.yaml \
-     --profile observability up -d --build --wait
-   ```
-   Add `compose.test.yaml` to the `-f` list if you also need the PostgreSQL test
-   port. Without the profile, `docker compose up -d --build --wait` starts only
-   the normal PostgreSQL, backend and frontend stack.
-3. **Open Grafana** at [http://127.0.0.1:3001](http://127.0.0.1:3001) and sign in
-   as `admin` with the password from `.env`.
-
-### Privacy and retention
-
-- The backend sends OTLP to `otel-collector:4318` only in
-  `compose.observability.yaml`. If the variable is unset, telemetry stays off.
-- Span attributes, metric labels and log fields pass through the deny-by-default
-  allow-list in `app/telemetry.py`. SQL text, bodies, headers, cookies, query
-  strings, raw paths with IDs, exception text, file names and file bytes are
-  dropped before export.
-- Prometheus, Loki and Tempo retain at most 48 hours of data. Each service has a
-  Compose memory limit.
-
-### Find the key-journey evidence in Grafana
-
-1. In the app at [http://127.0.0.1:3000](http://127.0.0.1:3000), create a purchase
-   lot, create a heat from that lot, then upload a PDF spectro report for the
-   heat.
-2. Open **MetalOps → MetalOps key journey**. The dashboard shows requests by
-   route, p95 latency, report upload counts, upload failures and uploaded bytes.
-3. Open **Explore → Prometheus** and run, for example:
-   ```promql
-   sum by (http_route) (rate(http_server_request_count_total[5m]))
-   report_upload_count_total
-   ```
-4. Open **Explore → Loki** and query `{service_name="metalops-lite"}`. JSON log
-   lines include `trace_id` and `span_id`. Click the derived **TraceID** link to
-   open the same request in Tempo, or paste the ID into **Explore → Tempo**.
-5. In **Explore → Tempo**, search by service `metalops-lite` and open the
-   `POST /api/heats/{heat_id}/reports` trace. The HTTP span, SQLAlchemy spans and
-   upload metrics share that trace.
-
-To tear down only the observability services while keeping the application:
+### 3. Start Development Servers
 ```bash
-docker compose -f compose.yaml -f compose.observability.yaml \
-  --profile observability stop otel-collector prometheus alertmanager alert-adapter loki tempo grafana
+make dev
 ```
+*Launches both services concurrently:*
+- **Backend API**: [http://127.0.0.1:8000](http://127.0.0.1:8000) (Interactive Swagger Docs at `/docs`)
+- **Frontend UI**: [http://127.0.0.1:5173](http://127.0.0.1:5173)
 
-## Alerting on User Impact (Issue #17)
+Log in with:
+- **Email**: `owner@workshop.local` (or value in `OWNER_EMAIL`)
+- **Password**: `ValidPassword123!` (or value in `OWNER_PASSWORD`)
 
-When the observability profile is active, Prometheus evaluates the `HeatReportHigh5xxRate` alert rule (`observability/prometheus/alert_rules.yml`). If the 5xx rate on heat or report endpoints exceeds the threshold continuously for 5 minutes, an alert is dispatched through Alertmanager to the Alert Adapter, which queries Loki for correlated trace IDs and POSTs a sanitized payload to `ALERT_WEBHOOK_URL`.
+---
 
-- **Configuration:** Set `ALERT_WEBHOOK_URL` in `.env`.
-- **Contract:** Dispatches firing and resolved notifications formatted per `_docs/oncall-agent.md`.
-- **Fault Injection & Recovery:** See the step-by-step incident runbook and screenshot evidence in [`_docs/incident-response.md`](_docs/incident-response.md).
+## 8. Running Automated Tests
 
+All tests can be executed locally using GNU Make:
 
-## Continuous Integration & Branch Protection
-
-Automated verification runs on GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) on every pull request and on pushes to `main`. The pipeline comprises parallel jobs:
-
-- **Supply Chain & Security:** exact dependency pin check (`scripts/check_pins.py`), `npm audit` (high and above), `pip-audit`, and full-history secret scanning with Gitleaks.
-- **Backend Tests:** unit tests (`make test-unit`) and integration tests (`make test-integration`) against a PostgreSQL service container (`postgres:16-alpine`).
-- **Frontend Tests & Build:** Vitest suite, TypeScript compilation (`tsc --noEmit`), and Vite production bundle build.
-- **Docker Build & Vulnerability Scan:** builds both backend and frontend images and scans for HIGH and CRITICAL vulnerabilities using Trivy.
-- **Aggregate Gate (`ci`):** an aggregate job named `ci` coordinates all parallel stages and acts as the required status check for branch protection.
-
-### Branch Protection Setup
-
-To require pull requests and the automated `ci` gate before merging to `main` on GitHub:
-
-1. In your GitHub repository, open **Settings** > **Branches** (under *Code and automation*).
-2. Click **Add branch ruleset** (or **Add branch protection rule**).
-3. Set **Branch name pattern** to `main`.
-4. Under **Protect matching branches**, enable:
-   - **Require a pull request before merging** (check *Dismiss stale pull request approvals when new commits are pushed*).
-   - **Require status checks to pass before merging**:
-     - Check **Require branches to be up to date before merging**.
-     - In the search field under *Status checks that are required*, search for and select the aggregate check: **`ci`**.
-   - **Do not allow bypassing the above settings** (enforces rules for administrators).
-5. Click **Save changes** (or **Create**).
-
-Once enabled, direct pushes to `main` are blocked and pull requests cannot be merged unless all CI jobs succeed through the aggregate `ci` check.
-
-## Continuous Delivery & Deployment (CD)
-
-Automated deployment runs via GitHub Actions ([`.github/workflows/cd.yml`](.github/workflows/cd.yml)):
-- **Merge to `main`:** Builds immutable container images tagged with the commit SHA (`ghcr.io/kushagrapan/metal-ops-backend:<sha>` and `metal-ops-frontend:<sha>`) and automatically redeploys the **development** environment.
-- **Production Gate:** Production deployment targets the **production** GitHub Environment and requires explicit manual review and approval from designated reviewers.
-- **Persistent Storage:** Deployments use Docker Compose (`compose.prod.yaml`) on a single small VM with named persistent volumes (`metalops_postgres_data` and `metalops_uploads`), ensuring database records and uploaded spectro PDF reports persist across updates and restarts.
-- **Version Display in UI:** The frontend displays the active application version/commit SHA in the login screen, desktop sidebar footer, and mobile top bar (`v<version>`), injected via build argument `VITE_APP_VERSION`.
-
-### Public Application URLs
-
-| Environment | Public URL | Deployment Gate |
+| Test Command | Scope & Framework | Verification Details |
 |---|---|---|
-| **Production** | [https://metalops.example.com](https://metalops.example.com) *(configured via `PROD_APP_URL`)* | Manual review required (GitHub Environment `production`) |
-| **Development** | [http://dev.metalops.local](http://dev.metalops.local) *(configured via `DEV_APP_URL`)* | Automated on push/merge to `main` |
+| `make test` | **Full Test Suite** | Executes unit tests, integration tests, Vitest suite, and TypeScript typechecking (`tsc --noEmit`). |
+| `make test-unit` | **Unit Tests Only** | Runs `pytest tests/unit` covering `app/calc.py`, domain validations, telemetry allowlists, and route rules. |
+| `make test-integration` | **Integration Tests** | Runs `pytest tests/integration` against a real database instance verifying concurrent row locking (`FOR UPDATE`). |
+| `cd frontend && npm test` | **Frontend Unit Tests** | Executes Vitest unit tests across React pages, components, and formatters. |
+| `make rollback-test` | **Deployment Rollback** | Verifies container rollback mechanics and database persistence. |
 
-*Note: Replace example hosts with your provisioned VM hostnames/DNS in GitHub repository environment variables (`PROD_APP_URL`, `DEV_APP_URL`).*
+---
 
-### VM Prerequisites & Secrets
+## 9. Running with Docker Compose
 
-To connect CI/CD to target VMs, configure the following secrets in GitHub Repository or Environment Settings:
+To run the complete production-grade stack (PostgreSQL database, FastAPI backend, and Nginx reverse proxy):
 
+### Start the Stack
+```bash
+docker compose up -d --build
+```
+Access the application at [http://127.0.0.1:3000](http://127.0.0.1:3000).
+
+### Volume Persistence & Lifecycle
+- **Stop containers (preserve data)**:
+  ```bash
+  docker compose down
+  ```
+  *Database records and uploaded spectro reports are safely retained in Docker named volumes (`metalops_postgres_data` and `metalops_uploads`).*
+- **Tear down with volume deletion (wipe data)**:
+  ```bash
+  docker compose down -v
+  ```
+
+### Stack Verification Targets
+```bash
+make stack-up           # Start Compose stack with test database exposed
+make stack-test         # Run integration test suite against running containers
+make stack-persistence  # Verify report file persistence across container restart
+make stack-down         # Tear down test stack
+```
+
+---
+
+## 10. Observability & Alerting Stack
+
+An optional observability profile adds OpenTelemetry Collector, Prometheus, Loki, Tempo, and Grafana:
+
+1. **Start Observability Stack**:
+   ```bash
+   docker compose -f compose.yaml -f compose.observability.yaml --profile observability up -d --build --wait
+   ```
+2. **Access Grafana**:
+   Open [http://127.0.0.1:3001](http://127.0.0.1:3001) and sign in as `admin` with `GRAFANA_ADMIN_PASSWORD` from `.env`.
+   - **Dashboard**: Open **MetalOps → MetalOps key journey** to view request rates, latencies, and upload volumes.
+   - **Explore Traces & Logs**: Open **Explore → Loki** or **Tempo** to query distributed spans and logs joined by `trace_id`.
+3. **Stop Observability Services**:
+   ```bash
+   docker compose -f compose.yaml -f compose.observability.yaml --profile observability down
+   ```
+
+---
+
+## 11. Deployment Procedure & CI/CD
+
+Deployment is automated via GitHub Actions ([`.github/workflows/cd.yml`](.github/workflows/cd.yml)) targeting single-host VMs with Docker Compose:
+
+### Deployment Pipeline
+1. **Merge to `main`**: Builds immutable container images tagged with the commit SHA (`ghcr.io/kushagrapan/metal-ops-backend:<sha>` and `metal-ops-frontend:<sha>`) and automatically deploys to the `development` environment.
+2. **Production Deployment Gate**: Deployments to `production` target the GitHub `production` environment and require explicit manual review and approval from designated reviewers.
+3. **Rollback Procedure**:
+   If an issue occurs in production, rollback is executed by redeploying the prior commit SHA:
+   ```bash
+   IMAGE_TAG=<previous_commit_sha> docker compose -f compose.prod.yaml up -d --remove-orphans
+   ```
+
+### Required Deployment Secrets
+Configure these secrets in GitHub Repository Settings:
 - `DEPLOY_HOST`: Hostname or IP address of the target VM.
-- `DEPLOY_USER`: SSH user with Docker Compose access (e.g., `ubuntu` or `metalops`).
+- `DEPLOY_USER`: SSH user with Docker Compose access.
 - `DEPLOY_SSH_KEY`: Private SSH key authorized in the VM's `~/.ssh/authorized_keys`.
-- `OWNER_PASSWORD`: Admin password (minimum 10 characters).
+- `OWNER_PASSWORD`: Production workshop admin password (minimum 10 characters).
 
-### GitHub Environment Setup for Production Approval
+---
 
-1. In your GitHub repository, open **Settings** > **Environments**.
-2. Click **New environment** and enter name: `production`.
-3. Under **Deployment protection rules**, enable **Required reviewers** and select authorized reviewers.
-4. Click **Save protection rules**.
-5. Create a second environment named `development` with no protection rules for automated continuous deployment.
+## 12. Project Documentation Directory
 
-### Manual Deployment & Rollback Procedure
-
-All production container images are tagged with immutable commit SHAs. If a regression occurs in production, rollback is performed by redeploying the previous image tag:
-
-#### Option A: Rollback via GitHub Actions
-1. Open **Actions** > **CD** workflow in GitHub.
-2. Click **Run workflow**.
-3. In **Specific image tag to deploy or rollback to**, enter the previous commit SHA (e.g. `44e5d654...`).
-4. Click **Run workflow** and approve the production deployment review gate.
-
-#### Option B: Direct Rollback on the VM
-Execute Docker Compose with the previous immutable image tag:
-
-```bash
-# 1. Pull the previous image tag
-IMAGE_TAG=<previous_commit_sha> docker compose -f compose.prod.yaml pull
-
-# 2. Redeploy previous container images (named volumes persist intact)
-IMAGE_TAG=<previous_commit_sha> docker compose -f compose.prod.yaml up -d --remove-orphans
-
-# 3. Verify services are healthy
-docker compose -f compose.prod.yaml ps
-```
-
-To run the automated deployment and rollback verification test locally:
-```bash
-make rollback-test
-```
-
-## Documentation
-
-| File | Contents |
+| Document | Content & Purpose |
 |---|---|
-| [`product-spec.md`](product-spec.md) | Frozen specification: data model, rules R1–R13, screens, non-functional requirements |
-| [`_docs/backlog.md`](_docs/backlog.md) | Issues #1–#19, mirroring the GitHub tracker |
-| [`_docs/architecture.md`](_docs/architecture.md) | Layers, data model, key flows, deployment topology |
-| [`_docs/agent-team.md`](_docs/agent-team.md) | Roles, hand-offs and the evidence each role leaves on an issue |
-| [`_docs/oncall-agent.md`](_docs/oncall-agent.md) | Alert-to-fix loop and its guardrails |
-| [`AGENTS.md`](AGENTS.md) | Working agreement for coding agents |
-
-## Data and privacy
-
-Every name, price and report in this repository and its demo is fictional. No real business data, credentials or secrets are committed; configuration comes from environment variables. Telemetry never carries supplier or customer names, rates, amounts or file contents.
-
-## Technology
-
-Python 3.11 · FastAPI · SQLAlchemy 2 · Alembic · Pydantic v2 · pytest · React 18 · TypeScript · Vite · Vitest · Tailwind CSS · shadcn/ui · Recharts · Docker Compose · PostgreSQL · OpenTelemetry · GitHub Actions
+| [`product-spec.md`](product-spec.md) | **Frozen Product Specification**: Complete mathematical rules R1–R13, data model, screen requirements, and worked financial fixture. |
+| [`_docs/architecture.md`](_docs/architecture.md) | **Architecture Guide**: Detailed request flow, backend layering, data model, frontend structure, security, and observability. |
+| [`_docs/agent-team.md`](_docs/agent-team.md) | **Agent Team Governance**: Roles (Spec, Implementer, QA, Responder, Reviewer), lifecycle, handoff contracts, and boundaries. |
+| [`_docs/ai-tools-usage.md`](_docs/ai-tools-usage.md) | **AI Tools Usage Log**: Record of AI models used, tasks assisted, human verification responsibilities, and limitations encountered. |
+| [`_docs/oncall-agent.md`](_docs/oncall-agent.md) | **On-Call Responder**: Automated incident triage design, guardrails, controlled remediation drill evaluation, and acceptance status. |
+| [`_docs/backlog.md`](_docs/backlog.md) | **Issue Backlog**: Issues #1 through #22 detailing priorities, dependencies, and observable acceptance criteria. |
+| [`AGENTS.md`](AGENTS.md) | **Developer & Agent Working Agreement**: Code conventions, safety rules, and definition of done. |
