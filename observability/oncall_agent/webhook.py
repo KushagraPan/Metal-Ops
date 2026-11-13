@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
@@ -62,13 +63,24 @@ class OnCallWebhookHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": str(err)})
             return
 
-        # Deduplicate alert
-        if self.deduplicator.is_duplicate(alert):
-            logger.info("Deduplicating duplicate alert: %s (%s)", alert.metric, alert.window)
-            self._send_json(429, {"status": "deduplicated", "message": "Alert currently being handled or handled recently"})
+        # Atomically claim alert; fail-closed on storage/SQLite error
+        try:
+            claimed = self.deduplicator.claim_alert(alert)
+        except sqlite3.Error as db_err:
+            logger.error("Deduplication database failure: %s", db_err)
+            self._send_json(503, {
+                "status": "fail_closed",
+                "error": f"Deduplication storage failure: {db_err}",
+            })
             return
 
-        self.deduplicator.record(alert)
+        if not claimed:
+            logger.info("Deduplicating duplicate alert: %s (%s)", alert.metric, alert.window)
+            self._send_json(429, {
+                "status": "deduplicated",
+                "message": "Alert currently being handled or handled recently",
+            })
+            return
 
         try:
             result = self.agent.handle_alert(alert)

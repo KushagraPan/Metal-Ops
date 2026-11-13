@@ -36,8 +36,13 @@ No supplier or customer names, rates, amounts, filenames or file contents. IDs a
 
 ## Guardrails
 
-- **No production credentials.** The run reads telemetry and writes to a branch; it cannot reach the production database or volume.
-- **No merge authority.** Branch protection and required checks make a self-merge impossible, not merely discouraged.
+- **No production credentials.** The run reads telemetry and writes to a branch; it cannot reach the production database or volume. Environment variables `DEPLOY_SSH_KEY`, `PROD_DATABASE_URL`, and all variables with prefix `PRODUCTION_*` or `PROD_*` are strictly detected and forbidden.
+- **Fail-closed token isolation.** The responder strictly requires `ONCALL_GITHUB_TOKEN`. If missing or empty, execution halts immediately without attempting git remote operations or falling back to ambient user credentials. All `gh` operations run with `GH_CONFIG_DIR` pinned to an isolated temporary directory, blocking access to personal keyrings or `~/.config/gh/hosts.yml`.
+- **Atomic SQLite Deduplication & Fail-Closed Webhook.** Alerts are debounced using an atomic transactional claim (`claim_alert`) with SQLite in WAL mode with immediate write transactions (`BEGIN IMMEDIATE;`). Exactly one process wins concurrent claims. Any SQLite storage failure at the webhook boundary immediately fails closed with HTTP 503 (`status: "fail_closed"`).
+- **Isolated Git Worktree Lifecycle.** All reproduction, testing, and patch authoring execute inside a dedicated Git worktree (`../metalops-oncall-worktrees/wt-...`). The primary working copy (`issue-18`) remains clean and unmodified. Branch names and directory paths use collision disambiguation to avoid overwriting existing worktrees, stale administrative metadata is pruned via `git worktree prune`, and worktrees are preserved for review (`preserve=True`).
+- **Command Allowlisting & Shell Rejection.** The execution boundary allows only specific executables (`git`, `gh`, `python`, `pytest`, `make`). Direct shell invocations (`sh`, `bash`, `cmd`, `powershell`, `pwsh`), shell indirection characters (`;`, `&&`, `||`, `|`, `` ` ``), and `shell=True` are strictly prohibited.
+- **Evidence Directory & Worktree Preservation.** Worktrees and investigation logs are preserved (`preserve=True`) until a human reviewer completes review of the candidate pull request. All incident telemetry and localization evidence are persisted under `_docs/evidence/oncall/`.
+- **No merge authority.** Branch protection and required checks make a self-merge impossible, not merely discouraged. Commands containing `merge` or `deploy` are blocked by `GuardrailEnforcer`.
 - **No scope.** The diff may touch only the failing code path and its test. Anything else is a comment on the alert, not a commit.
 - **No secrets in the report.** The pull request quotes IDs, durations and status codes, never payloads or names.
 - **Bounded.** One run per alert window, with a timeout and a maximum attempt count; repeated failure escalates to the human on call instead of retrying forever.

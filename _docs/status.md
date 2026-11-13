@@ -73,13 +73,15 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs, without duplicate threshold filtering, and formatting payloads per `_docs/oncall-agent.md`.
   - Deny-by-default allow-list prevents exposure of business data, rates, amounts, or file bytes in alert payloads; credential masking (`mask_credentials()`) strips passwords and tokens from logs.
   - Fully verified fault injection and recovery loop (`chmod 000 /app/storage` -> 500 errors -> firing alert + webhook received with 5 trace IDs -> `chmod 755 /app/storage` -> 201 created -> resolved alert + webhook received) documented in `_docs/incident-response.md` with genuine screenshots covering Prometheus firing, Prometheus resolved, Grafana firing, and webhook receiver states.
-- **[#18] On-call agent** (Implemented — Pending Human Review)
-  - Built headless On-Call Agent (`observability/oncall_agent/agent.py`) and Webhook Receiver (`observability/oncall_agent/webhook.py`) executing the 8-step incident response runbook.
-  - Validates and deduplicates incoming alerts within configurable TTL windows.
-  - Correlates trace IDs with Loki log streams to extract error context and root cause.
-  - Runs in sandboxed developer workspace without production credentials (`DEPLOY_SSH_KEY`, `PROD_DATABASE_URL`).
-  - Prohibits self-merge and deployment commands (`GuardrailEnforcer`); sanitizes sensitive business names and rates.
-  - Verified with automated fault injection simulation (`scripts/run_oncall_simulation.py`): generated reproduction test (`tests/unit/test_storage_reproduction.py`), applied candidate fix, and opened candidate Pull Request #28 left in `OPEN` state for human review.
+- **[#18] On-call agent** (In Progress — Milestone 1 of 4 Completed)
+  - **Milestone 1 Completed:** Implemented deterministic worker (`observability/oncall_agent/worker.py`) and comprehensive test suite (`tests/unit/test_oncall_worker.py`).
+    - `fetch_evidence(alert)`: queries Loki & Tempo by trace IDs, redacts sensitive business data, truncates to 8 KB max, returns graceful "evidence unavailable" on errors without raising.
+    - `build_prompt(evidence, source_files)`: combines evidence with up to 3 relevant files under `app/` mapped from alert route group.
+    - `call_llm(prompt)`: invokes configured model/endpoint with 120s timeout; LLM has zero shell access and strictly receives text and returns text.
+    - `parse_diff(text)` & `validate_diff(diff)`: extracts and validates unified diffs, enforcing paths under `tests/` or `app/`, rejecting forbidden directories (`.github/`, `scripts/`, `compose*.yaml`, `Dockerfile`, `requirements*.txt`, `.env*`, `observability/`, `migrations/`), capping at 200 changed lines, blocking binary patches, path traversal, and symlinks, and requiring at least one test file under `tests/`.
+    - Reused existing webhook listener, atomic SQLite deduplication (`claim_alert`), and `WorktreeManager`.
+    - Verified with 16 unit tests in `test_oncall_worker.py` and full `make test-unit` (314 tests green).
+  - **Milestone 2 (Next):** Wire deterministic `worker.py` into `OnCallAgent` and webhook receiver to execute the end-to-end alert-to-patch workflow within isolated Git worktrees, preserving review evidence while keeping LLM strictly sandboxed without shell access.
 
 ---
 

@@ -27,11 +27,14 @@ coverage/
 # Local data, database files and uploaded reports
 /data/
 /storage/
+.metalops/
+metalops-oncall-worktrees/
 *.db
 *.sqlite
 *.sqlite3
 *.db-journal
 *.db-wal
+*.db-shm
 
 # Logs
 *.log

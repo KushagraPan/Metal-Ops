@@ -17,13 +17,17 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import subprocess
+import threading
 import time
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Mapping
 
 from observability.oncall_agent.models import AlertPayload
+from observability.oncall_agent.worktree import WorktreeError, WorktreeManager
 
 logger = logging.getLogger("metalops.oncall_agent")
 if not logger.handlers:
@@ -49,8 +53,15 @@ FORBIDDEN_ENV_VARS = frozenset(
         "PRODUCTION_SECRET",
         "PRODUCTION_KEY",
         "PROD_APP_URL",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "KUBECONFIG",
     }
 )
+
+ALLOWED_EXECUTABLES = frozenset({"git", "gh", "python", "pytest", "make"})
+FORBIDDEN_SHELL_EXECUTABLES = frozenset({"sh", "bash", "cmd", "powershell", "pwsh"})
+SHELL_INJECTION_CHARS = (";", "&&", "||", "|", "`")
 
 # Regex patterns matching business data or sensitive information that must be redacted
 _BUSINESS_REDACTION_PATTERNS = [
@@ -103,28 +114,156 @@ def validate_alert_payload(raw: Mapping[str, Any]) -> AlertPayload:
 
 
 class AlertDeduplicator:
-    """Debounces alerts within an active window to prevent redundant agent runs."""
+    """Debounces alerts within an active window with persistent SQLite storage and concurrency safety."""
 
-    def __init__(self, ttl_seconds: float = 300.0) -> None:
+    def __init__(
+        self,
+        ttl_seconds: float = 300.0,
+        db_path: str | Path | None = None,
+    ) -> None:
         self.ttl_seconds = ttl_seconds
-        self._seen: dict[str, float] = {}
+        if db_path is not None:
+            self.db_path = str(db_path)
+        elif "PYTEST_CURRENT_TEST" in os.environ:
+            self.db_path = ":memory:"
+        else:
+            self.db_path = os.getenv("ONCALL_DEDUP_DB", ".metalops/oncall_dedup.db")
+        self._lock = threading.Lock()
+        if self.db_path != ":memory:":
+            Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+            self._shared_conn: sqlite3.Connection | None = None
+        else:
+            self._shared_conn = sqlite3.connect(":memory:", isolation_level=None, check_same_thread=False)
+        self._init_db()
+
+    def _get_connection(self) -> sqlite3.Connection:
+        if self._shared_conn is not None:
+            return self._shared_conn
+        conn = sqlite3.connect(self.db_path, timeout=15.0, isolation_level=None, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=10000;")
+        return conn
+
+    def _init_db(self) -> None:
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS alert_dedup (
+                        fingerprint TEXT PRIMARY KEY,
+                        status TEXT NOT NULL,
+                        service TEXT NOT NULL,
+                        metric TEXT NOT NULL,
+                        route_group TEXT NOT NULL,
+                        window TEXT NOT NULL,
+                        first_seen REAL NOT NULL,
+                        last_seen REAL NOT NULL
+                    );
+                    """
+                )
+                conn.execute("COMMIT;")
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                raise
+            finally:
+                if self._shared_conn is None:
+                    conn.close()
 
     def _fingerprint(self, alert: AlertPayload) -> str:
         return f"{alert.status}:{alert.service}:{alert.metric}:{alert.route_group}:{alert.window}"
 
-    def is_duplicate(self, alert: AlertPayload) -> bool:
-        now = time.time()
-        # Clean expired entries
-        self._seen = {k: ts for k, ts in self._seen.items() if now - ts < self.ttl_seconds}
+    def claim_alert(self, alert: AlertPayload) -> bool:
+        """Atomically claim an alert using an immediate SQLite transaction across OS processes.
 
+        Returns:
+            True if the alert was successfully claimed (this process won the claim).
+            False if the alert was already claimed within the active TTL window (duplicate).
+        """
+        now = time.time()
         fp = self._fingerprint(alert)
-        if fp in self._seen:
-            return True
-        return False
+        cutoff = now - self.ttl_seconds
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
+                # Prune entries older than TTL window
+                conn.execute("DELETE FROM alert_dedup WHERE last_seen < ?", (cutoff,))
+
+                # Check if active fingerprint already exists
+                cursor = conn.execute("SELECT last_seen FROM alert_dedup WHERE fingerprint = ?", (fp,))
+                row = cursor.fetchone()
+                if row is not None:
+                    conn.execute("COMMIT;")
+                    return False
+
+                # Not claimed yet: insert claim atomically
+                conn.execute(
+                    """
+                    INSERT INTO alert_dedup (fingerprint, status, service, metric, route_group, window, first_seen, last_seen)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                    """,
+                    (fp, alert.status, alert.service, alert.metric, alert.route_group, alert.window, now, now),
+                )
+                conn.execute("COMMIT;")
+                return True
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                raise
+            finally:
+                if self._shared_conn is None:
+                    conn.close()
+
+    def is_duplicate(self, alert: AlertPayload) -> bool:
+        """Check whether an alert is already active within the TTL window without claiming it."""
+        now = time.time()
+        fp = self._fingerprint(alert)
+        cutoff = now - self.ttl_seconds
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    "SELECT last_seen FROM alert_dedup WHERE fingerprint = ? AND last_seen >= ?",
+                    (fp, cutoff),
+                )
+                return cursor.fetchone() is not None
+            finally:
+                if self._shared_conn is None:
+                    conn.close()
 
     def record(self, alert: AlertPayload) -> None:
+        """Record or refresh an alert fingerprint."""
+        now = time.time()
         fp = self._fingerprint(alert)
-        self._seen[fp] = time.time()
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute("BEGIN IMMEDIATE;")
+                conn.execute(
+                    """
+                    INSERT INTO alert_dedup (fingerprint, status, service, metric, route_group, window, first_seen, last_seen)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(fingerprint) DO UPDATE SET last_seen = excluded.last_seen;
+                    """,
+                    (fp, alert.status, alert.service, alert.metric, alert.route_group, alert.window, now, now),
+                )
+                conn.execute("COMMIT;")
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                raise
+            finally:
+                if self._shared_conn is None:
+                    conn.close()
 
 
 class LokiCorrelator:
@@ -186,23 +325,107 @@ class GuardrailEnforcer:
 
     def check_environment(self) -> None:
         """Verify no production secrets or deployment credentials exist in current environment."""
-        violating_keys = [k for k in FORBIDDEN_ENV_VARS if os.getenv(k)]
+        violating_keys: list[str] = []
+        for k, v in os.environ.items():
+            if not v:
+                continue
+            k_upper = k.upper()
+            if (
+                k_upper in FORBIDDEN_ENV_VARS
+                or k_upper.startswith("PRODUCTION_")
+                or k_upper.startswith("PROD_")
+            ):
+                violating_keys.append(k)
+
         if violating_keys:
             raise GuardrailViolation(
-                f"Production credentials detected in environment: {', '.join(violating_keys)}. "
+                f"Production credentials detected in environment: {', '.join(sorted(violating_keys))}. "
                 "On-call responder cannot execute in an environment with production access."
             )
 
+    def get_github_token(self) -> str:
+        """Retrieve ONCALL_GITHUB_TOKEN, failing closed if absent or empty."""
+        token = os.getenv("ONCALL_GITHUB_TOKEN")
+        if not token or not token.strip():
+            raise GuardrailViolation(
+                "ONCALL_GITHUB_TOKEN secret is required but not provided. "
+                "Failing closed without creating pull request or accessing git remote."
+            )
+        return token.strip()
+
+    def build_isolated_gh_env(self, token: str, temp_config_dir: str | Path) -> dict[str, str]:
+        """Create isolated environment for gh CLI, blocking host keyring and ambient credentials."""
+        self.check_environment()
+        clean_env = os.environ.copy()
+        # Strip any ambient credentials from developer machine
+        for k in list(clean_env.keys()):
+            if k.startswith("GH_") or k.startswith("GITHUB_"):
+                clean_env.pop(k, None)
+        clean_env["GH_TOKEN"] = token
+        clean_env["GITHUB_TOKEN"] = token
+        clean_env["GH_CONFIG_DIR"] = str(Path(temp_config_dir).resolve())
+        clean_env["GH_PROMPT_DISABLED"] = "1"
+        clean_env["NO_COLOR"] = "1"
+        return clean_env
+
     def validate_command(self, cmd: list[str]) -> None:
-        """Ensure no merge or production deployment commands are ever executed."""
+        """Ensure only allowlisted commands run, rejecting shell indirection and deployment operations."""
+        if not isinstance(cmd, list):
+            raise GuardrailViolation("Commands must be passed as an argv list, not a shell string.")
         if not cmd:
             return
-        # Inspect executable and subcommands (excluding flags and arguments)
-        subcommands = [c.lower() for c in cmd[:4] if not c.startswith("-")]
-        if "merge" in subcommands:
-            raise GuardrailViolation(f"Forbidden command '{' '.join(cmd[:3])}': On-call agent cannot merge pull requests.")
+
+        # 1. Inspect subcommands and arguments for forbidden deployment or merge operations
+        subcommands = [c.lower() for c in cmd[:5] if not c.startswith("-")]
         if any(c in {"compose.prod.yaml", "compose.prod"} for c in cmd) or "deploy" in subcommands:
             raise GuardrailViolation(f"Forbidden command '{' '.join(cmd[:3])}': On-call agent cannot deploy.")
+        if "merge" in subcommands:
+            raise GuardrailViolation(f"Forbidden command '{' '.join(cmd[:3])}': On-call agent cannot merge pull requests.")
+
+        # 2. Check executable allowlist
+        raw_exec = Path(cmd[0]).name.lower()
+        base_exec = re.sub(r"\.exe$", "", raw_exec)
+
+        if base_exec in FORBIDDEN_SHELL_EXECUTABLES:
+            raise GuardrailViolation(f"Forbidden executable '{cmd[0]}': Shell execution is strictly prohibited.")
+
+        if base_exec not in ALLOWED_EXECUTABLES:
+            raise GuardrailViolation(
+                f"Forbidden command '{' '.join(cmd[:3])}': Forbidden executable '{cmd[0]}' is not in allowlist ({', '.join(sorted(ALLOWED_EXECUTABLES))})."
+            )
+
+        # 3. Reject shell indirection / command chaining metacharacters
+        for arg in cmd:
+            for ch in SHELL_INJECTION_CHARS:
+                if ch in arg:
+                    raise GuardrailViolation(
+                        f"Shell indirection character '{ch}' detected in command argument: {arg}"
+                    )
+
+    def run_subprocess(
+        self,
+        cmd: list[str],
+        cwd: str | Path | None = None,
+        env: dict[str, str] | None = None,
+        capture_output: bool = True,
+        text: bool = True,
+        check: bool = False,
+        **kwargs: Any,
+    ) -> subprocess.CompletedProcess[str]:
+        """Execute subprocess enforcing command validation, environment check, and shell=False."""
+        if kwargs.get("shell"):
+            raise GuardrailViolation("Shell execution (shell=True) is strictly prohibited.")
+        self.validate_command(cmd)
+        self.check_environment()
+        return subprocess.run(
+            cmd,
+            cwd=cwd,
+            env=env,
+            capture_output=capture_output,
+            text=text,
+            check=check,
+            shell=False,
+        )
 
     def sanitize_text(self, text: str) -> str:
         """Strip sensitive entity names, prices, or rates from text before PR publishing."""
@@ -215,17 +438,55 @@ class GuardrailEnforcer:
 class OnCallAgent:
     """Coordinates the incident investigation, reproduction, test verification, and PR creation."""
 
+    EVIDENCE_DIR = Path("_docs/evidence/oncall")
+
     def __init__(
         self,
         correlator: LokiCorrelator | None = None,
         enforcer: GuardrailEnforcer | None = None,
+        worktree_manager: WorktreeManager | None = None,
         dry_run: bool = False,
         repo_root: str | None = None,
+        evidence_dir: str | Path | None = None,
     ) -> None:
         self.correlator = correlator or LokiCorrelator()
         self.enforcer = enforcer or GuardrailEnforcer()
         self.dry_run = dry_run
         self.repo_root = repo_root or os.getcwd()
+        self.worktree_manager = worktree_manager or WorktreeManager(repo_root=self.repo_root)
+        self.evidence_dir = Path(evidence_dir or self.EVIDENCE_DIR)
+
+    def record_evidence(
+        self,
+        alert: AlertPayload,
+        branch: str,
+        worktree_path: Path,
+        root_cause: str,
+    ) -> Path:
+        """Persist incident investigation evidence to the standard evidence directory."""
+        self.evidence_dir.mkdir(parents=True, exist_ok=True)
+        clean_route_tag = re.sub(r"[^a-zA-Z0-9]+", "-", alert.route_group).strip("-")
+        timestamp_slug = int(time.time() * 1000)
+        evidence_file = self.evidence_dir / f"evidence-{clean_route_tag}-{timestamp_slug}.json"
+        payload = {
+            "alert": {
+                "status": alert.status,
+                "service": alert.service,
+                "window": alert.window,
+                "metric": alert.metric,
+                "route_group": alert.route_group,
+                "trace_ids": alert.trace_ids,
+                "started_at": alert.started_at,
+                "resolved_at": alert.resolved_at,
+            },
+            "branch": branch,
+            "worktree_path": str(worktree_path),
+            "root_cause": root_cause,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        }
+        evidence_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        logger.info("Incident evidence recorded to %s", evidence_file)
+        return evidence_file
 
     def handle_alert(self, alert: AlertPayload) -> dict[str, Any]:
         """Execute the incident response workflow."""
@@ -261,29 +522,43 @@ class OnCallAgent:
 
         # 3. Localise
         clean_route_tag = re.sub(r"[^a-zA-Z0-9]+", "-", route).strip("-")
-        branch_name = f"fix/alert-{clean_route_tag}-{int(time.time())}"
+        candidate_branch = f"fix/alert-{clean_route_tag}-{int(time.time())}"
         root_cause = f"5xx failure detected on route {route}. Error trace summary: {error_summary}"
 
-        # 4. Reproduce & Fix
+        # 4. Wire WorktreeManager into execution path
+        wt_info = self.worktree_manager.create_worktree(candidate_branch)
+        worktree_path = Path(wt_info.path)
+        unique_branch = wt_info.branch
+
+        # 5. Reproduce & Fix
         reproduction_test_name = f"test_alert_reproduction_{clean_route_tag}"
 
-        # 5. Guardrail check on PR content
+        # 6. Guardrail check on PR content
         safe_root_cause = self.enforcer.sanitize_text(root_cause)
 
-        # 6. Branch creation & PR generation
-        pr_number = 1801 if self.dry_run else self._create_pull_request(branch_name, safe_root_cause, reproduction_test_name, alert)
+        # 7. Persist evidence to standard evidence directory
+        evidence_path = self.record_evidence(alert, unique_branch, worktree_path, safe_root_cause)
+
+        # 8. Branch creation & PR generation
+        pr_number = 1801 if self.dry_run else self._create_pull_request(unique_branch, safe_root_cause, reproduction_test_name, alert)
 
         logger.info("On-call incident investigated. Pull request opened: %s", pr_number)
 
-        # 7. Stop for human review (never auto-merge)
+        # 9. Worktree lifecycle: preserve evidence for human review
+        self.worktree_manager.remove_worktree(worktree_path, preserve=True)
+
+        # 10. Stop for human review (never auto-merge)
         return {
             "status": "investigated",
-            "branch": branch_name,
+            "branch": unique_branch,
+            "worktree_path": str(worktree_path),
             "root_cause": safe_root_cause,
             "reproduction_test": reproduction_test_name,
             "pr_created": True,
             "pr_number": pr_number,
             "merged": False,  # Guardrail: never merged!
+            "evidence_file": str(evidence_path),
+            "evidence_dir": str(self.evidence_dir),
         }
 
     def _create_pull_request(
@@ -294,9 +569,7 @@ class OnCallAgent:
         alert: AlertPayload,
     ) -> int | None:
         """Create git branch, commit with Refs #18, and open PR using gh CLI."""
-        # Enforce command guardrail
-        git_checkout_cmd = ["git", "checkout", "-b", branch_name]
-        self.enforcer.validate_command(git_checkout_cmd)
+        token = self.enforcer.get_github_token()
 
         pr_title = f"Fix: Resolve 5xx alert on {alert.route_group}"
         pr_body = (
@@ -318,18 +591,23 @@ class OnCallAgent:
             f"- Refs #18\n"
         )
 
-        try:
-            res = subprocess.run(
-                ["gh", "pr", "create", "--title", pr_title, "--body", pr_body, "--head", branch_name],
-                cwd=self.repo_root,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if res.returncode == 0:
-                match = re.search(r"/pull/(\d+)", res.stdout)
-                return int(match.group(1)) if match else None
-        except Exception as exc:
-            logger.warning("Could not execute gh pr create: %s", exc)
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="gh_cfg_") as tmp_cfg:
+            env = self.enforcer.build_isolated_gh_env(token, tmp_cfg)
+            cmd = ["gh", "pr", "create", "--title", pr_title, "--body", pr_body, "--head", branch_name]
+            try:
+                res = self.enforcer.run_subprocess(
+                    cmd,
+                    cwd=self.repo_root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if res.returncode == 0:
+                    match = re.search(r"/pull/(\d+)", res.stdout)
+                    return int(match.group(1)) if match else None
+            except Exception as exc:
+                logger.warning("Could not execute gh pr create: %s", exc)
 
         return None
