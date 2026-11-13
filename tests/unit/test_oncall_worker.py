@@ -19,12 +19,16 @@ import pytest
 from observability.oncall_agent.models import AlertPayload
 from observability.oncall_agent.worktree import WorktreeManager
 from observability.oncall_agent.worker import (
+    ALLOWED_PR_ENV_KEYS,
     DiffApplyError,
     DiffValidationError,
     build_minimal_env,
+    build_pr_env,
     build_prompt,
     call_llm,
     fetch_evidence,
+    format_pr_body,
+    open_pr,
     parse_diff,
     run_incident,
     split_diff,
@@ -559,4 +563,178 @@ def test_run_incident_timeout(temp_git_repo, tmp_path, sample_alert):
         result = run_incident(sample_alert, llm=fake_llm, worktree_manager=mgr, repo_root=temp_git_repo)
         assert result["status"] == "timeout"
         assert "timed out" in result["message"].lower()
+
+
+# ==============================================================================
+# 6. Milestone 3: open_pr & security isolation
+# ==============================================================================
+
+
+@pytest.fixture
+def fake_git_gh_fixture(tmp_path: Path):
+    bin_dir = tmp_path / "fake_bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    git_log = tmp_path / "git_env.json"
+    gh_log = tmp_path / "gh_env.json"
+
+    # Python runner recording os.environ
+    runner = bin_dir / "record_runner.py"
+    runner.write_text(
+        "import os, json, sys\n"
+        "log_path = sys.argv[1]\n"
+        "data = dict(os.environ)\n"
+        "data['_git_global_exists'] = os.path.isfile(os.environ.get('GIT_CONFIG_GLOBAL', ''))\n"
+        "data['_git_global_size'] = os.path.getsize(os.environ['GIT_CONFIG_GLOBAL']) if data['_git_global_exists'] else -1\n"
+        "data['_git_system_exists'] = os.path.isfile(os.environ.get('GIT_CONFIG_SYSTEM', ''))\n"
+        "data['_git_system_size'] = os.path.getsize(os.environ['GIT_CONFIG_SYSTEM']) if data['_git_system_exists'] else -1\n"
+        "with open(log_path, 'w', encoding='utf-8') as f:\n"
+        "    json.dump(data, f)\n"
+        "if 'pr' in sys.argv:\n"
+        "    print('https://github.com/mock/repo/pull/1801')\n"
+        "sys.exit(0)\n",
+        encoding="utf-8",
+    )
+
+    import sys
+    if sys.platform == "win32":
+        (bin_dir / "git.bat").write_text(
+            f'@echo off\n"{sys.executable}" "{runner}" "{git_log}" %*\n',
+            encoding="utf-8",
+        )
+        (bin_dir / "gh.bat").write_text(
+            f'@echo off\n"{sys.executable}" "{runner}" "{gh_log}" %*\n',
+            encoding="utf-8",
+        )
+    else:
+        git_sh = bin_dir / "git"
+        git_sh.write_text(
+            f'#!/bin/sh\n"{sys.executable}" "{runner}" "{git_log}" "$@"\n',
+            encoding="utf-8",
+        )
+        git_sh.chmod(0o755)
+        gh_sh = bin_dir / "gh"
+        gh_sh.write_text(
+            f'#!/bin/sh\n"{sys.executable}" "{runner}" "{gh_log}" "$@"\n',
+            encoding="utf-8",
+        )
+        gh_sh.chmod(0o755)
+
+    return bin_dir, git_log, gh_log
+
+
+def test_open_pr_missing_token_fails(monkeypatch, tmp_path):
+    monkeypatch.delenv("ONCALL_GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv("GH_TOKEN", "ambient_gh_token")
+    monkeypatch.setenv("GITHUB_TOKEN", "ambient_github_token")
+
+    result = {
+        "status": "success",
+        "branch": "oncall/abcdef12",
+        "worktree_path": str(tmp_path),
+    }
+
+    with pytest.raises(ValueError, match="ONCALL_GITHUB_TOKEN is missing"):
+        open_pr(result, repo_root=tmp_path)
+
+
+def test_open_pr_ambient_token_not_used(fake_git_gh_fixture, monkeypatch, tmp_path):
+    import os
+    bin_dir, git_log, gh_log = fake_git_gh_fixture
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setenv("ONCALL_GITHUB_TOKEN", "valid_oncall_secret_token")
+    monkeypatch.setenv("GH_TOKEN", "ambient_gh_token_should_be_ignored")
+    monkeypatch.setenv("GITHUB_TOKEN", "ambient_github_token_should_be_ignored")
+
+    result = {
+        "status": "success",
+        "branch": "oncall/abcdef12",
+        "worktree_path": str(tmp_path),
+    }
+
+    res = open_pr(result, repo_root=tmp_path)
+    assert res["status"] == "pr_opened"
+    assert res["pr_number"] == 1801
+
+    assert git_log.exists()
+    assert gh_log.exists()
+
+    git_env = json.loads(git_log.read_text(encoding="utf-8"))
+    gh_env = json.loads(gh_log.read_text(encoding="utf-8"))
+
+    # Crucial check: GH_TOKEN matches ONCALL_GITHUB_TOKEN, NOT ambient
+    assert git_env["GH_TOKEN"] == "valid_oncall_secret_token"
+    assert gh_env["GH_TOKEN"] == "valid_oncall_secret_token"
+    assert "GITHUB_TOKEN" not in git_env
+    assert "GITHUB_TOKEN" not in gh_env
+    assert "ONCALL_GITHUB_TOKEN" not in git_env
+    assert "ONCALL_GITHUB_TOKEN" not in gh_env
+
+
+def test_open_pr_refuses_push_to_main(monkeypatch, tmp_path):
+    monkeypatch.setenv("ONCALL_GITHUB_TOKEN", "valid_token")
+
+    for forbidden_ref in ["main", "master", "feature/my-patch", "refs/heads/main", "heads/main"]:
+        result = {
+            "status": "success",
+            "branch": forbidden_ref,
+            "worktree_path": str(tmp_path),
+        }
+        with pytest.raises(ValueError, match="(refused|Refusing)"):
+            open_pr(result, repo_root=tmp_path)
+
+
+def test_open_pr_environment_contains_only_allowed_keys(fake_git_gh_fixture, monkeypatch, tmp_path):
+    import os
+    bin_dir, git_log, gh_log = fake_git_gh_fixture
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setenv("ONCALL_GITHUB_TOKEN", "valid_oncall_secret_token")
+    monkeypatch.setenv("PRODUCTION_DATABASE_URL", "postgres://leak")
+    monkeypatch.setenv("PROD_SECRET_KEY", "leak_key")
+    monkeypatch.setenv("DEPLOY_SSH_KEY", "leak_ssh")
+    monkeypatch.setenv("GH_ENTERPRISE_TOKEN", "leak_ent")
+
+    result = {
+        "status": "success",
+        "branch": "oncall/abcdef12",
+        "worktree_path": str(tmp_path),
+    }
+
+    open_pr(result, repo_root=tmp_path)
+
+    git_env = json.loads(git_log.read_text(encoding="utf-8"))
+    gh_env = json.loads(gh_log.read_text(encoding="utf-8"))
+
+    for env_dict in (git_env, gh_env):
+        for k in env_dict.keys():
+            if k.startswith("_"):
+                continue
+            assert k.upper() in ALLOWED_PR_ENV_KEYS, f"Unexpected env key passed to subprocess: {k}"
+
+        # Global and system configs point to empty files during execution
+        assert env_dict["_git_global_exists"] is True
+        assert env_dict["_git_global_size"] == 0
+        assert env_dict["_git_system_exists"] is True
+        assert env_dict["_git_system_size"] == 0
+        assert env_dict["GIT_TERMINAL_PROMPT"] == "0"
+        assert env_dict["GH_TOKEN"] == "valid_oncall_secret_token"
+
+
+def test_open_pr_pr_body_matches_template():
+    body = format_pr_body(
+        alert_name="http_5xx_rate",
+        fingerprint="a1b2c3d4",
+        trace_ids=["trace1", "trace2"],
+        evidence_summary="Loki 500 error on /api/reports",
+        failing_output="AssertionError: 500 != 200",
+        passing_output="1 passed in 0.05s",
+        make_test_tail="321 passed in 40s",
+    )
+    assert "http_5xx_rate" in body
+    assert "a1b2c3d4" in body
+    assert "trace1, trace2" in body
+    assert "Loki 500 error on /api/reports" in body
+    assert "AssertionError: 500 != 200" in body
+    assert "1 passed in 0.05s" in body
+    assert "321 passed in 40s" in body
+    assert "Never auto-merged" in body
 

@@ -73,7 +73,7 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs, without duplicate threshold filtering, and formatting payloads per `_docs/oncall-agent.md`.
   - Deny-by-default allow-list prevents exposure of business data, rates, amounts, or file bytes in alert payloads; credential masking (`mask_credentials()`) strips passwords and tokens from logs.
   - Fully verified fault injection and recovery loop (`chmod 000 /app/storage` -> 500 errors -> firing alert + webhook received with 5 trace IDs -> `chmod 755 /app/storage` -> 201 created -> resolved alert + webhook received) documented in `_docs/incident-response.md` with genuine screenshots covering Prometheus firing, Prometheus resolved, Grafana firing, and webhook receiver states.
-- **[#18] On-call agent** (In Progress — Milestone 2 of 4 Completed)
+- **[#18] On-call agent** (In Progress — Milestone 3 of 4 Completed)
   - **Milestone 1 Completed:** Implemented deterministic worker (`observability/oncall_agent/worker.py`) and comprehensive test suite (`tests/unit/test_oncall_worker.py`).
     - `fetch_evidence(alert)`: queries Loki & Tempo by trace IDs, redacts sensitive business data, truncates to 8 KB max, returns graceful "evidence unavailable" on errors without raising.
     - `build_prompt(evidence, source_files)`: combines evidence with up to 3 relevant files under `app/` mapped from alert route group.
@@ -90,7 +90,15 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
     - Subprocess environment (`build_minimal_env`) purges `GH_TOKEN`, `ONCALL_GITHUB_TOKEN`, and `PRODUCTION_*` variables, enforcing strict timeouts.
     - Fixed git commit template records alert metric, route group, fingerprint, and window.
     - Verified with 23 unit tests covering not reproduced, reproduced+fixed, regression failures, apply failures, and timeouts; full `make test-unit` (321 passed).
-  - **Milestone 3 (Next):** Open GitHub pull request with reproduction trace evidence, branch push via `ONCALL_GITHUB_TOKEN`, and stop for human review.
+  - **Milestone 3 Completed:** Added deterministic `open_pr(result)` to `observability/oncall_agent/worker.py` as the sole authenticated step.
+    - Reads strictly `ONCALL_GITHUB_TOKEN`; fails closed if missing with zero fallback to ambient `GH_TOKEN`, gh auth, git credential helpers, or ssh agents.
+    - Builds execution environment from scratch: `GH_TOKEN=<oncall token>`, `GH_CONFIG_DIR=<temp dir>`, `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_SYSTEM` pointing to empty files, `GIT_CONFIG_NOSYSTEM=1`, `GIT_TERMINAL_PROMPT=0`, purging all other `GH_`, `GITHUB_`, or `PRODUCTION_` variables.
+    - Strictly pushes only `oncall/<fingerprint8>` branches to origin; refuses `main`, `master`, and any non-oncall ref.
+    - Opens normal OPEN PR (not draft) against base `main` with fixed incident template (alert name, fingerprint, trace IDs, evidence summary, failing test output, passing verification output, make test tail).
+    - Zero auto-merge or deploy code path.
+    - Verified with 28 unit tests (missing token, ambient token isolation, push-to-main refusal, exact allowed environment keys).
+    - Manual proof executed: without token fails; with exported `ONCALL_GITHUB_TOKEN` pushed branch `oncall/test-m3` and opened PR #29, verified state `OPEN`, then closed PR and deleted branch. Full `make test-unit` (326 passed).
+  - **Milestone 4 (Next):** Connect alert receiver to the completed on-call worker workflow, validating the complete genuine webhook-to-OPEN-PR loop and stopping for human review.
 
 ---
 
