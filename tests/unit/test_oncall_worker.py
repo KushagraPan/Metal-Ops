@@ -17,12 +17,17 @@ import urllib.error
 import pytest
 
 from observability.oncall_agent.models import AlertPayload
+from observability.oncall_agent.worktree import WorktreeManager
 from observability.oncall_agent.worker import (
+    DiffApplyError,
     DiffValidationError,
+    build_minimal_env,
     build_prompt,
     call_llm,
     fetch_evidence,
     parse_diff,
+    run_incident,
+    split_diff,
     validate_diff,
 )
 
@@ -347,4 +352,211 @@ def test_validate_diff_rejects_over_200_changed_lines():
     )
     with pytest.raises(DiffValidationError, match="exceeds maximum allowed changed lines"):
         validate_diff(huge_diff)
+
+
+# ==============================================================================
+# 5. Milestone 2: run_incident & helpers
+# ==============================================================================
+
+
+@pytest.fixture
+def temp_git_repo(tmp_path: Path) -> Path:
+    import subprocess
+    repo = tmp_path / "mock_repo"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "OnCall Test"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "oncall@test.local"], cwd=repo, check=True, capture_output=True)
+
+    app_dir = repo / "app"
+    app_dir.mkdir(parents=True)
+    (app_dir / "__init__.py").write_text("", encoding="utf-8")
+    (app_dir / "calc.py").write_text("def compute():\n    return 0\n", encoding="utf-8")
+
+    tests_dir = repo / "tests"
+    tests_dir.mkdir(parents=True)
+    (tests_dir / "__init__.py").write_text("", encoding="utf-8")
+
+    subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=repo, check=True, capture_output=True)
+    return repo
+
+
+def test_build_minimal_env_purges_tokens(tmp_path, monkeypatch):
+    monkeypatch.setenv("GH_TOKEN", "leak_gh_token")
+    monkeypatch.setenv("ONCALL_GITHUB_TOKEN", "leak_oncall_token")
+    monkeypatch.setenv("PRODUCTION_DATABASE_URL", "leak_prod_db")
+    monkeypatch.setenv("PROD_SECRET", "leak_prod_secret")
+
+    env = build_minimal_env(tmp_path)
+    assert "PATH" in env
+    assert env["HOME"] == str(tmp_path.resolve())
+    assert "GH_TOKEN" not in env
+    assert "ONCALL_GITHUB_TOKEN" not in env
+    assert "PRODUCTION_DATABASE_URL" not in env
+    assert "PROD_SECRET" not in env
+
+
+def test_split_diff_separates_tests_and_app():
+    combined_diff = (
+        "--- a/tests/unit/test_foo.py\n"
+        "+++ b/tests/unit/test_foo.py\n"
+        "@@ -0,0 +1,2 @@\n"
+        "+def test_repro(): pass\n"
+        "--- a/app/calc.py\n"
+        "+++ b/app/calc.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        "-old\n"
+        "+new\n"
+    )
+    tests_diff, app_diff = split_diff(combined_diff)
+    assert "tests/unit/test_foo.py" in tests_diff
+    assert "app/calc.py" not in tests_diff
+    assert "app/calc.py" in app_diff
+    assert "tests/unit/test_foo.py" not in app_diff
+
+
+def test_run_incident_not_reproduced(temp_git_repo, tmp_path, sample_alert):
+    # Canned diff has test that immediately passes
+    diff_text = (
+        "--- a/tests/unit/test_repro.py\n"
+        "+++ b/tests/unit/test_repro.py\n"
+        "@@ -0,0 +1,2 @@\n"
+        "+def test_passing_immediately():\n"
+        "+    assert True\n"
+        "--- a/app/calc.py\n"
+        "+++ b/app/calc.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        " def compute():\n"
+        "-    return 0\n"
+        "+    return 0\n"
+    )
+    fake_llm = MagicMock(return_value=diff_text)
+    mgr = WorktreeManager(repo_root=temp_git_repo, worktree_base=tmp_path / "worktrees")
+
+    result = run_incident(sample_alert, llm=fake_llm, worktree_manager=mgr, repo_root=temp_git_repo)
+    assert result["status"] == "not_reproduced"
+    assert "passed unexpectedly" in result["message"]
+    assert result.get("commit_sha") is None
+
+
+def test_run_incident_reproduced_and_fixed(temp_git_repo, tmp_path, sample_alert):
+    # Canned diff has test that fails on compute() == 0, then passes on compute() == 42
+    diff_text = (
+        "--- a/tests/unit/test_repro.py\n"
+        "+++ b/tests/unit/test_repro.py\n"
+        "@@ -0,0 +1,3 @@\n"
+        "+from app.calc import compute\n"
+        "+def test_repro():\n"
+        "+    assert compute() == 42\n"
+        "--- a/app/calc.py\n"
+        "+++ b/app/calc.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        " def compute():\n"
+        "-    return 0\n"
+        "+    return 42\n"
+    )
+    fake_llm = MagicMock(return_value=diff_text)
+    mgr = WorktreeManager(repo_root=temp_git_repo, worktree_base=tmp_path / "worktrees")
+
+    # Mock make test
+    fake_make_lines = "\n".join(f"make test line {i}" for i in range(50))
+    mock_make_runner = MagicMock(return_value=(0, fake_make_lines))
+
+    result = run_incident(
+        sample_alert,
+        llm=fake_llm,
+        worktree_manager=mgr,
+        repo_root=temp_git_repo,
+        make_test_runner=mock_make_runner,
+    )
+
+    assert result["status"] == "success"
+    assert result["commit_sha"] is not None
+    assert len(result["commit_sha"]) == 40
+    assert "assert compute() == 42" in result["failing_output"]
+    assert len(result["full_test_output_tail"].splitlines()) == 40
+    mock_make_runner.assert_called_once()
+
+
+def test_run_incident_fix_breaks_other_tests(temp_git_repo, tmp_path, sample_alert):
+    diff_text = (
+        "--- a/tests/unit/test_repro.py\n"
+        "+++ b/tests/unit/test_repro.py\n"
+        "@@ -0,0 +1,3 @@\n"
+        "+from app.calc import compute\n"
+        "+def test_repro():\n"
+        "+    assert compute() == 42\n"
+        "--- a/app/calc.py\n"
+        "+++ b/app/calc.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        " def compute():\n"
+        "-    return 0\n"
+        "+    return 42\n"
+    )
+    fake_llm = MagicMock(return_value=diff_text)
+    mgr = WorktreeManager(repo_root=temp_git_repo, worktree_base=tmp_path / "worktrees")
+
+    # Mock make test failing
+    mock_make_runner = MagicMock(return_value=(1, "ERROR: regression occurred in sales tests\nFailed 1 test"))
+
+    result = run_incident(
+        sample_alert,
+        llm=fake_llm,
+        worktree_manager=mgr,
+        repo_root=temp_git_repo,
+        make_test_runner=mock_make_runner,
+    )
+
+    assert result["status"] == "full_suite_failed"
+    assert result.get("commit_sha") is None
+    assert "Full test suite failed" in result["message"]
+    mock_make_runner.assert_called_once()
+
+
+def test_run_incident_apply_failure(temp_git_repo, tmp_path, sample_alert):
+    # Canned diff with invalid context that fails git apply
+    diff_text = (
+        "--- a/tests/unit/test_repro.py\n"
+        "+++ b/tests/unit/test_repro.py\n"
+        "@@ -100,2 +100,2 @@\n"
+        "-nonexistent line\n"
+        "+new line\n"
+    )
+    fake_llm = MagicMock(return_value=diff_text)
+    mgr = WorktreeManager(repo_root=temp_git_repo, worktree_base=tmp_path / "worktrees")
+
+    result = run_incident(sample_alert, llm=fake_llm, worktree_manager=mgr, repo_root=temp_git_repo)
+    assert result["status"] == "apply_failure"
+    assert "Failed to apply" in result["message"]
+
+
+def test_run_incident_timeout(temp_git_repo, tmp_path, sample_alert):
+    import subprocess
+    diff_text = (
+        "--- a/tests/unit/test_repro.py\n"
+        "+++ b/tests/unit/test_repro.py\n"
+        "@@ -0,0 +1,2 @@\n"
+        "+def test_repro(): assert False\n"
+        "--- a/app/calc.py\n"
+        "+++ b/app/calc.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        "-def compute(): return 0\n"
+        "+def compute(): return 42\n"
+    )
+    fake_llm = MagicMock(return_value=diff_text)
+    mgr = WorktreeManager(repo_root=temp_git_repo, worktree_base=tmp_path / "worktrees")
+
+    # Mock subprocess.run raising TimeoutExpired when running pytest
+    orig_run = subprocess.run
+
+    def fake_subprocess_run(cmd, *args, **kwargs):
+        if "pytest" in cmd:
+            raise subprocess.TimeoutExpired(cmd=cmd, timeout=60.0)
+        return orig_run(cmd, *args, **kwargs)
+
+    with patch("subprocess.run", side_effect=fake_subprocess_run):
+        result = run_incident(sample_alert, llm=fake_llm, worktree_manager=mgr, repo_root=temp_git_repo)
+        assert result["status"] == "timeout"
+        assert "timed out" in result["message"].lower()
 

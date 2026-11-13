@@ -73,7 +73,7 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
   - Implemented stdlib Python Alert Adapter (`observability/alert_adapter/adapter.py`) enriching firing alerts with up to 5 correlated trace IDs queried from Loki 5xx logs, without duplicate threshold filtering, and formatting payloads per `_docs/oncall-agent.md`.
   - Deny-by-default allow-list prevents exposure of business data, rates, amounts, or file bytes in alert payloads; credential masking (`mask_credentials()`) strips passwords and tokens from logs.
   - Fully verified fault injection and recovery loop (`chmod 000 /app/storage` -> 500 errors -> firing alert + webhook received with 5 trace IDs -> `chmod 755 /app/storage` -> 201 created -> resolved alert + webhook received) documented in `_docs/incident-response.md` with genuine screenshots covering Prometheus firing, Prometheus resolved, Grafana firing, and webhook receiver states.
-- **[#18] On-call agent** (In Progress — Milestone 1 of 4 Completed)
+- **[#18] On-call agent** (In Progress — Milestone 2 of 4 Completed)
   - **Milestone 1 Completed:** Implemented deterministic worker (`observability/oncall_agent/worker.py`) and comprehensive test suite (`tests/unit/test_oncall_worker.py`).
     - `fetch_evidence(alert)`: queries Loki & Tempo by trace IDs, redacts sensitive business data, truncates to 8 KB max, returns graceful "evidence unavailable" on errors without raising.
     - `build_prompt(evidence, source_files)`: combines evidence with up to 3 relevant files under `app/` mapped from alert route group.
@@ -81,7 +81,16 @@ Last updated: Issue #16 Part 2 implementation (Compose observability stack and v
     - `parse_diff(text)` & `validate_diff(diff)`: extracts and validates unified diffs, enforcing paths under `tests/` or `app/`, rejecting forbidden directories (`.github/`, `scripts/`, `compose*.yaml`, `Dockerfile`, `requirements*.txt`, `.env*`, `observability/`, `migrations/`), capping at 200 changed lines, blocking binary patches, path traversal, and symlinks, and requiring at least one test file under `tests/`.
     - Reused existing webhook listener, atomic SQLite deduplication (`claim_alert`), and `WorktreeManager`.
     - Verified with 16 unit tests in `test_oncall_worker.py` and full `make test-unit` (314 tests green).
-  - **Milestone 2 (Next):** Wire deterministic `worker.py` into `OnCallAgent` and webhook receiver to execute the end-to-end alert-to-patch workflow within isolated Git worktrees, preserving review evidence while keeping LLM strictly sandboxed without shell access.
+  - **Milestone 2 Completed:** Implemented deterministic incident execution engine `run_incident(alert, llm)` in `observability/oncall_agent/worker.py` with fixed commands and unit test suite (`tests/unit/test_oncall_worker.py`).
+    - `WorktreeManager` isolates execution on branch `oncall/<fingerprint8>` leaving main working tree untouched.
+    - Pure `split_diff` separates `tests/` and `app/` patches without hunk corruption.
+    - `apply_diff` uses fixed `git apply --recount --whitespace=nowarn -`.
+    - Step 1 applies `tests/` patch and runs reproduction test via venv pytest (`sys.executable -m pytest <test_file>`); MUST FAIL (stops with `"not_reproduced"` if it passes).
+    - Step 2 applies `app/` patch; reproduction test MUST PASS; runs `make test` full gate, capturing last 40 lines of test output.
+    - Subprocess environment (`build_minimal_env`) purges `GH_TOKEN`, `ONCALL_GITHUB_TOKEN`, and `PRODUCTION_*` variables, enforcing strict timeouts.
+    - Fixed git commit template records alert metric, route group, fingerprint, and window.
+    - Verified with 23 unit tests covering not reproduced, reproduced+fixed, regression failures, apply failures, and timeouts; full `make test-unit` (321 passed).
+  - **Milestone 3 (Next):** Open GitHub pull request with reproduction trace evidence, branch push via `ONCALL_GITHUB_TOKEN`, and stop for human review.
 
 ---
 

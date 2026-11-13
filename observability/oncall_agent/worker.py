@@ -9,17 +9,21 @@ Executes deterministic parts of the incident response loop:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
 import re
+import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from observability.oncall_agent.models import AlertPayload
+from observability.oncall_agent.worktree import WorktreeManager
 
 logger = logging.getLogger("metalops.oncall_worker")
 if not logger.handlers:
@@ -52,6 +56,10 @@ FORBIDDEN_FILE_PATTERNS = (
 
 class DiffValidationError(ValueError):
     """Raised when a unified diff fails validation rules."""
+
+
+class DiffApplyError(RuntimeError):
+    """Raised when git apply fails to apply a diff hunk."""
 
 
 def redact_business_info(text: str) -> str:
@@ -210,6 +218,14 @@ def call_llm(
     api_key = os.getenv("ONCALL_LLM_API_KEY", "")
 
     if client is not None:
+        if callable(client):
+            try:
+                res = client(prompt)
+                if isinstance(res, str):
+                    return res
+            except Exception:
+                pass
+
         if hasattr(client, "chat") and hasattr(client.chat, "completions"):
             resp = client.chat.completions.create(
                 model=resolved_model,
@@ -218,7 +234,7 @@ def call_llm(
             )
             return resp.choices[0].message.content
         elif callable(client):
-            return client(prompt)
+            return str(client(prompt))
         elif hasattr(client, "generate"):
             return client.generate(prompt=prompt, model=resolved_model, timeout=timeout)
         raise ValueError(f"Unsupported fake client interface: {type(client)}")
@@ -349,4 +365,269 @@ def validate_diff(diff: str) -> bool:
         )
 
     return True
+
+
+def build_minimal_env(worktree_path: Path) -> dict[str, str]:
+    """Construct minimal clean environment for worktree subprocess execution."""
+    env: dict[str, str] = {}
+    for k in ["PATH", "SystemRoot", "WINDIR", "TMP", "TEMP"]:
+        val = os.environ.get(k)
+        if val:
+            env[k] = val
+
+    env["HOME"] = str(worktree_path.resolve())
+    env["USERPROFILE"] = str(worktree_path.resolve())
+
+    # Purge all tokens and production credentials
+    for k in list(env.keys()):
+        k_upper = k.upper()
+        if (
+            "TOKEN" in k_upper
+            or "KEY" in k_upper
+            or "SECRET" in k_upper
+            or k_upper.startswith("PRODUCTION_")
+            or k_upper.startswith("PROD_")
+        ):
+            env.pop(k, None)
+
+    return env
+
+
+def split_diff(diff: str) -> tuple[str, str]:
+    """Split validated unified diff into tests_diff and app_diff."""
+    lines = diff.splitlines(keepends=True)
+    chunks: list[list[str]] = []
+    current_chunk: list[str] = []
+
+    for line in lines:
+        if line.startswith("diff --git ") or (
+            line.startswith("--- ") and (not current_chunk or not current_chunk[-1].startswith("diff --git "))
+        ):
+            if current_chunk and any(l.startswith(("--- ", "+++ ")) for l in current_chunk):
+                chunks.append(current_chunk)
+                current_chunk = []
+        current_chunk.append(line)
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    tests_chunks: list[str] = []
+    app_chunks: list[str] = []
+
+    for chunk in chunks:
+        chunk_text = "".join(chunk).rstrip() + "\n"
+        paths = _extract_diff_paths(chunk_text)
+        if any(p.startswith("tests/") for p in paths):
+            tests_chunks.append(chunk_text)
+        elif any(p.startswith("app/") for p in paths):
+            app_chunks.append(chunk_text)
+
+    tests_diff = "\n".join(tests_chunks).strip()
+    if tests_diff:
+        tests_diff += "\n"
+
+    app_diff = "\n".join(app_chunks).strip()
+    if app_diff:
+        app_diff += "\n"
+
+    return tests_diff, app_diff
+
+
+def apply_diff(worktree_path: Path, patch_text: str, timeout: float = 30.0) -> None:
+    """Apply a unified diff patch to the worktree using git apply with fixed command."""
+    if not patch_text.strip():
+        return
+    formatted_patch = patch_text.rstrip() + "\n"
+    res = subprocess.run(
+        ["git", "apply", "--recount", "--whitespace=nowarn", "-"],
+        input=formatted_patch,
+        cwd=worktree_path,
+        env=build_minimal_env(worktree_path),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+    if res.returncode != 0:
+        err_msg = res.stderr.strip() or res.stdout.strip() or "git apply failed"
+        raise DiffApplyError(f"Failed to apply patch: {err_msg}")
+
+
+def extract_test_files(tests_diff: str) -> list[str]:
+    """Extract paths of test files (.py under tests/) modified in the diff."""
+    paths = _extract_diff_paths(tests_diff)
+    return [p for p in paths if p.startswith("tests/") and p.endswith(".py")]
+
+
+def run_incident(
+    alert: AlertPayload,
+    llm: Any = None,
+    worktree_manager: WorktreeManager | None = None,
+    repo_root: Path | str | None = None,
+    make_test_runner: Callable[[Path, dict[str, str]], tuple[int, str]] | None = None,
+) -> dict[str, Any]:
+    """Execute incident reproduction and patch workflow in an isolated worktree."""
+    root_path = Path(repo_root or os.getcwd()).resolve()
+    mgr = worktree_manager or WorktreeManager(repo_root=root_path)
+
+    # 1. Alert fingerprint & isolated worktree branch creation
+    raw_fp = f"{alert.status}:{alert.service}:{alert.metric}:{alert.route_group}:{alert.window}"
+    fingerprint8 = hashlib.sha256(raw_fp.encode("utf-8")).hexdigest()[:8]
+    branch_target = f"oncall/{fingerprint8}"
+
+    wt_info = mgr.create_worktree(branch_target)
+    wt_path = wt_info.path
+    unique_branch = wt_info.branch
+    env = build_minimal_env(wt_path)
+
+    failing_output = ""
+    full_test_output_tail = ""
+
+    try:
+        # Evidence & LLM query
+        evidence = fetch_evidence(alert)
+        prompt = build_prompt(evidence, alert=alert, repo_root=wt_path)
+        llm_text = call_llm(prompt, client=llm)
+
+        # Diff parsing & validation
+        raw_diff = parse_diff(llm_text)
+        validate_diff(raw_diff)
+
+        # 2. Split diff into tests/ and app/ parts
+        tests_diff, app_diff = split_diff(raw_diff)
+
+        # 3. Apply tests part and run reproduction test (MUST FAIL)
+        apply_diff(wt_path, tests_diff, timeout=30.0)
+        test_files = extract_test_files(tests_diff)
+        if not test_files:
+            return {
+                "status": "apply_failure",
+                "branch": unique_branch,
+                "worktree_path": str(wt_path),
+                "message": "No valid test file found in tests diff.",
+            }
+
+        test_target = test_files[0]
+        repro_run = subprocess.run(
+            [sys.executable, "-m", "pytest", test_target],
+            cwd=wt_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60.0,
+        )
+
+        # It MUST FAIL; if it passes, stop with result "not_reproduced", push nothing
+        if repro_run.returncode == 0:
+            return {
+                "status": "not_reproduced",
+                "branch": unique_branch,
+                "worktree_path": str(wt_path),
+                "message": f"Reproduction test {test_target} passed unexpectedly before applying fix.",
+                "failing_output": "",
+            }
+
+        failing_output = repro_run.stdout + "\n" + repro_run.stderr
+
+        # 4. Apply app part; reproduction test MUST PASS
+        if app_diff.strip():
+            apply_diff(wt_path, app_diff, timeout=30.0)
+
+        verify_run = subprocess.run(
+            [sys.executable, "-m", "pytest", test_target],
+            cwd=wt_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60.0,
+        )
+        if verify_run.returncode != 0:
+            return {
+                "status": "fix_failed_to_resolve_test",
+                "branch": unique_branch,
+                "worktree_path": str(wt_path),
+                "message": f"Reproduction test {test_target} still failed after applying fix: {verify_run.stderr.strip() or verify_run.stdout.strip()}",
+                "failing_output": failing_output,
+            }
+
+        # Run make test (full), save last 40 lines
+        if make_test_runner is not None:
+            make_code, make_output = make_test_runner(wt_path, env)
+        else:
+            make_cmd = ["make", "test"]
+            res_make = subprocess.run(
+                make_cmd,
+                cwd=wt_path,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=300.0,
+            )
+            make_code = res_make.returncode
+            make_output = res_make.stdout + "\n" + res_make.stderr
+
+        make_lines = make_output.strip().splitlines()
+        full_test_output_tail = "\n".join(make_lines[-40:])
+
+        if make_code != 0:
+            return {
+                "status": "full_suite_failed",
+                "branch": unique_branch,
+                "worktree_path": str(wt_path),
+                "message": f"Full test suite failed after applying fix (exit code {make_code})",
+                "failing_output": failing_output,
+                "full_test_output_tail": full_test_output_tail,
+            }
+
+        # 5. Git commit in worktree with fixed message template
+        commit_msg = (
+            f"Fix: Resolve {alert.metric} on {alert.route_group}\n\n"
+            f"Refs #18\n\n"
+            f"Incident oncall/{fingerprint8}\n"
+            f"Service: {alert.service}\n"
+            f"Window: {alert.window}\n"
+        )
+        subprocess.run(["git", "add", "tests", "app"], cwd=wt_path, env=env, capture_output=True, timeout=30.0, check=True)
+        subprocess.run(["git", "commit", "-m", commit_msg], cwd=wt_path, env=env, capture_output=True, timeout=30.0, check=True)
+
+        rev_res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=wt_path, env=env, capture_output=True, text=True, timeout=10.0, check=True)
+        commit_sha = rev_res.stdout.strip()
+
+        return {
+            "status": "success",
+            "branch": unique_branch,
+            "worktree_path": str(wt_path),
+            "commit_sha": commit_sha,
+            "failing_output": failing_output,
+            "full_test_output_tail": full_test_output_tail,
+            "message": f"Incident successfully reproduced, fixed, and verified on branch {unique_branch}",
+        }
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "status": "timeout",
+            "branch": unique_branch,
+            "worktree_path": str(wt_path),
+            "message": f"Subprocess timed out after {exc.timeout}s: {' '.join(exc.cmd) if isinstance(exc.cmd, list) else exc.cmd}",
+        }
+    except DiffValidationError as exc:
+        return {
+            "status": "invalid_diff",
+            "branch": unique_branch,
+            "worktree_path": str(wt_path),
+            "message": f"Generated diff failed validation: {exc}",
+        }
+    except DiffApplyError as exc:
+        return {
+            "status": "apply_failure",
+            "branch": unique_branch,
+            "worktree_path": str(wt_path),
+            "message": f"Failed to apply patch: {exc}",
+        }
+    except Exception as exc:
+        return {
+            "status": "error",
+            "branch": unique_branch,
+            "worktree_path": str(wt_path),
+            "message": f"Unexpected error during incident processing: {exc}",
+        }
 
