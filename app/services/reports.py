@@ -184,8 +184,6 @@ class ReportService:
     def _clean_notes(value: str | None) -> str | None:
         if value is None:
             return None
-        if "\r\n" in value:
-            raise RuntimeError("CRLF newline rejected in report notes")
         value = value.strip()
         return value or None
 
