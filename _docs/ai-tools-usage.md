@@ -102,3 +102,4 @@ flowchart TD
 2. **Isolated Unit Execution**: `pytest tests/unit` and `npm test` verified algorithmic correctness in isolation.
 3. **Integration Gate**: `scripts/test_db.py` exercised real transactional concurrency (`FOR UPDATE`) against PostgreSQL containers.
 4. **Human Review**: Audit against frozen acceptance criteria in `_docs/backlog.md` with small, scoped commits.
+
